@@ -1,0 +1,17 @@
+name: Push
+
+on:
+  push:
+    branches:
+      - main
+      - next
+
+jobs:
+  test:
+    uses: rubilmax/ethers-multicall-provider/.github/workflows/test.yml@main
+
+  release:
+    needs: test
+
+    uses: rubilmax/ethers-multicall-provider/.github/workflows/release.yml@main
+    secrets: inherit
