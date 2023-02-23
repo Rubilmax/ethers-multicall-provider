@@ -1,0 +1,35 @@
+name: Jest Test Suite
+
+on:
+  pull_request:
+    paths:
+      - src/**
+      - test/**
+      - package.json
+      - yarn.lock
+  workflow_call:
+
+jobs:
+  jest:
+    runs-on: ubuntu-latest
+    if: github.head_ref != 'next' # already triggered by push
+
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Run Jest test suite
+        run: yarn test

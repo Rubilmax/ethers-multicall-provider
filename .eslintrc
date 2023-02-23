@@ -1,0 +1,13 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": ["./tsconfig.json"]
+  },
+  "plugins": ["@typescript-eslint", "node"],
+  "extends": ["plugin:node/recommended", "plugin:@typescript-eslint/eslint-recommended"],
+  "rules": {
+    "node/no-missing-import": "off",
+    "node/no-unsupported-features/es-syntax": "off",
+    "node/shebang": "off"
+  }
+}
