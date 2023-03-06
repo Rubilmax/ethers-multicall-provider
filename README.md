@@ -12,6 +12,11 @@
 Querying an RPC endpoint can be very costly (**100+ queries**) when loading data from multiple smart contracts.
 With multicall, batch these queries into a single, on-chain query, without additional over-head!
 
+- Integrates both Multicall2 & Multicall3, enabling faster queries up to block #12_336_033 on mainnet
+- Natively supports 25+ EVM-compatible chains on which Multicall3 is deployed
+- Enable 10x faster off-chain data queries, making UIs faster to render and reload
+- Only fails specific failing smart contract calls when batching, which makes debugging as easy as with native ethers
+
 ### `ethers-multicall-provider` is a drop-in solution batching ALL smart contract calls!
 
 ```diff
@@ -25,11 +30,6 @@ const contract = new ethers.Contract(
 +  multicallProvider
 );
 ```
-
-- Integrates both Multicall2 & Multicall3, enabling faster queries up to block #12_336_033 on mainnet
-- Natively supports 25+ EVM-compatible chains on which Multicall3 is deployed
-- Enable 10x faster off-chain data queries, making UIs faster to render and reload
-- Only fails specific failing smart contract calls when batching, which makes debugging as easy as with native ethers
 
 ---
 
