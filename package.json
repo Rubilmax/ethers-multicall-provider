@@ -4,7 +4,7 @@
   "description": "⚡🕰️ Drop-in solution to batch smart contract RPC calls in a single RPC query via Multicall!",
   "main": "lib/index.js",
   "files": [
-    "lib/**/*"
+    "lib/*"
   ],
   "scripts": {
     "build": "tsc --build ./tsconfig.build.json",
