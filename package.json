@@ -78,9 +78,6 @@
       "path": "./node_modules/cz-conventional-changelog"
     }
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "lint-staged": {
     "*.ts": "eslint --cache --cache-location .eslintcache --fix"
   },
