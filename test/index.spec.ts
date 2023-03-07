@@ -13,22 +13,22 @@ const uniAddress = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984";
 const unknownAddress = "0xd6409e50c05879c5B9E091EB01E9Dd776d00A151";
 
 describe("ethers-multicall-provider", () => {
-  let rawRpcProvider: ethers.providers.JsonRpcProvider;
   let rpcProvider: ethers.providers.JsonRpcProvider;
+  let multicallProvider: ethers.providers.JsonRpcProvider;
   let signer: ethers.Signer;
 
   let uni: ethers.Contract;
   let unknownUni: ethers.Contract;
 
   beforeEach(() => {
-    rawRpcProvider = new ethers.providers.JsonRpcProvider(httpRpcUrl, 1);
-    const send = rawRpcProvider.send.bind(rawRpcProvider);
+    rpcProvider = new ethers.providers.JsonRpcProvider(httpRpcUrl, 1);
+    const send = rpcProvider.send.bind(rpcProvider);
     jest
-      .spyOn(rawRpcProvider, "send")
+      .spyOn(rpcProvider, "send")
       .mockImplementation(async (method, ...args) => send(method, ...args));
 
-    rpcProvider = MulticallProvider.wrap(rawRpcProvider);
-    signer = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, rpcProvider);
+    multicallProvider = MulticallProvider.wrap(rpcProvider);
+    signer = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, multicallProvider);
 
     uni = new ethers.Contract(uniAddress, UniAbi, signer);
     unknownUni = new ethers.Contract(unknownAddress, UniAbi, signer);
@@ -40,10 +40,19 @@ describe("ethers-multicall-provider", () => {
     });
 
     it("should work given a JsonRpcBatchProvider", async () => {
-      rawRpcProvider = new ethers.providers.JsonRpcBatchProvider(httpRpcUrl, 1);
-      rpcProvider = MulticallProvider.wrap(rawRpcProvider);
+      rpcProvider = new ethers.providers.JsonRpcBatchProvider(httpRpcUrl, 1);
+      multicallProvider = MulticallProvider.wrap(rpcProvider);
 
-      expect(await uni.connect(rpcProvider).symbol()).toEqual("UNI");
+      expect(await uni.connect(multicallProvider).symbol()).toEqual("UNI");
+    });
+
+    it("should getBlockNumber", async () => {
+      const [actualBlockNumber, expectedBlockNumber] = await Promise.all([
+        multicallProvider.getBlockNumber(),
+        rpcProvider.getBlockNumber(),
+      ]);
+
+      expect(actualBlockNumber).toEqual(expectedBlockNumber);
     });
   });
 
@@ -52,10 +61,10 @@ describe("ethers-multicall-provider", () => {
       const result = await Promise.all([uni.name(), uni.symbol(), uni.decimals()]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(rawRpcProvider.send).toHaveBeenCalledTimes(3);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(rpcProvider.send).toHaveBeenCalledTimes(3);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(3, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: "0xca11bde05977b3631167028862be2a173976ca11",
@@ -69,10 +78,10 @@ describe("ethers-multicall-provider", () => {
       expect(uni.symbol()).resolves.toEqual("UNI");
       expect(await uni.decimals()).toEqual(18);
 
-      expect(rawRpcProvider.send).toHaveBeenCalledTimes(3);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(rpcProvider.send).toHaveBeenCalledTimes(3);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(3, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: multicall3Address.toLowerCase(),
@@ -91,10 +100,10 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(rawRpcProvider.send).toHaveBeenCalledTimes(3);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(rawRpcProvider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(rpcProvider.send).toHaveBeenCalledTimes(3);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
+      expect(rpcProvider.send).toHaveBeenNthCalledWith(3, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: multicall2Address.toLowerCase(),
@@ -113,7 +122,7 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(rawRpcProvider.send).toHaveBeenCalledTimes(5);
+      expect(rpcProvider.send).toHaveBeenCalledTimes(5);
     });
 
     it("should not batch calls at earliest block", async () => {
@@ -126,7 +135,7 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(rawRpcProvider.send).toHaveBeenCalledTimes(5);
+      expect(rpcProvider.send).toHaveBeenCalledTimes(5);
     });
 
     it("should throw a descriptive Error when querying unknown contract", async () => {
