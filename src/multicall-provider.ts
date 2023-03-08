@@ -1,6 +1,6 @@
 import { BytesLike, Deferrable } from "ethers/lib/utils";
 
-import { BlockTag, Provider, TransactionRequest } from "@ethersproject/providers";
+import { BaseProvider, BlockTag, TransactionRequest } from "@ethersproject/providers";
 
 import { multicall2Address, multicall3Address, multicallAddresses } from "./constants";
 import { Multicall2__factory, Multicall3__factory } from "./types";
@@ -16,23 +16,19 @@ export interface ContractCall {
   data: BytesLike;
   blockTag: BlockTag;
   multicallVersion: MulticallVersion;
-}
-
-export interface QueuedContractCall {
   resolve: (value: string | PromiseLike<string>) => void;
   reject: (reason?: any) => void;
-  call: ContractCall;
 }
 
 export class MulticallProvider {
-  public static wrap<T extends Provider>(provider: T) {
+  public static wrap<T extends BaseProvider>(provider: T) {
     const multicall2 = Multicall2__factory.connect(multicall2Address, provider);
     const multicall3 = Multicall3__factory.connect(multicall3Address, provider);
 
-    const queuedCalls: { [id: string]: QueuedContractCall } = {};
+    const queuedCalls: { [id: string]: ContractCall } = {};
 
     const _provider = Object.assign(Object.create(Object.getPrototypeOf(provider)), provider) as T;
-    const _call = _provider.call.bind(_provider);
+    const _perform = _provider.perform.bind(_provider);
 
     const performMulticall = async () => {
       const _queuedCalls = Object.entries(queuedCalls).map(([key, queuedCall]) => {
@@ -44,30 +40,27 @@ export class MulticallProvider {
       if (_queuedCalls.length === 0) return;
 
       const blockTagCalls = _queuedCalls.reduce((acc, queuedCall) => {
-        const blockTag = queuedCall.call.blockTag.toString();
+        const blockTag = queuedCall.blockTag.toString();
 
         return {
           ...acc,
           [blockTag]: [queuedCall].concat(acc[blockTag] ?? []),
         };
-      }, {} as { [blockTag: BlockTag]: QueuedContractCall[] });
+      }, {} as { [blockTag: BlockTag]: ContractCall[] });
 
       return Promise.all(
         Object.values(blockTagCalls).map(async (blockTagQueuedCalls) => {
-          const callStructs = blockTagQueuedCalls.map((queuedCall) => ({
-            target: queuedCall.call.to,
-            callData: queuedCall.call.data,
+          const { blockTag, multicallVersion } = blockTagQueuedCalls[0];
+
+          const callStructs = blockTagQueuedCalls.map(({ to, data }) => ({
+            target: to,
+            callData: data,
           }));
 
-          const multicall =
-            blockTagQueuedCalls[0].call.multicallVersion === MulticallVersion.V2
-              ? multicall2
-              : multicall3;
+          const multicall = multicallVersion === MulticallVersion.V2 ? multicall2 : multicall3;
 
           try {
-            const res = await multicall.callStatic.tryAggregate(false, callStructs, {
-              blockTag: blockTagQueuedCalls[0].call.blockTag,
-            });
+            const res = await multicall.callStatic.tryAggregate(false, callStructs, { blockTag });
 
             if (res.length !== callStructs.length)
               throw new Error(
@@ -86,35 +79,33 @@ export class MulticallProvider {
       );
     };
 
-    _provider.call = async (
-      promisedTransaction: Deferrable<TransactionRequest>,
-      promisedBlockTag?: BlockTag | Promise<BlockTag>
-    ): Promise<string> => {
-      const [to, data, blockTag, { chainId }] = await Promise.all([
-        promisedTransaction.to,
-        promisedTransaction.data,
-        promisedBlockTag ?? "latest",
-        _provider.getNetwork(),
-      ]);
+    _provider.perform = async function (method: string, params: any): Promise<string> {
+      if (method !== "call") return _perform(method, params);
+
+      const {
+        transaction: { to, data },
+        blockTag,
+      } = params as {
+        transaction: TransactionRequest;
+        blockTag: BlockTag;
+      };
 
       const blockNumber = getBlockNumber(blockTag);
-      const multicallVersion = getMulticallVersion(blockNumber, chainId);
+      const multicallVersion = getMulticallVersion(blockNumber, this.network.chainId);
 
       if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
-        return _call({ ...promisedTransaction, to, data }, blockTag);
+        return _perform(method, params);
 
       setTimeout(performMulticall, 10);
 
       return new Promise<string>((resolve, reject) => {
         queuedCalls[to + data + blockTag.toString()] = {
+          to,
+          data,
+          blockTag,
+          multicallVersion,
           resolve,
           reject,
-          call: {
-            to,
-            data,
-            blockTag,
-            multicallVersion,
-          },
         };
       });
     };
