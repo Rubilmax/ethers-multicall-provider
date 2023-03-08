@@ -8,10 +8,11 @@ on:
 
 jobs:
   test:
-    uses: rubilmax/ethers-multicall-provider/.github/workflows/test.yml@main
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
 
   release:
     needs: test
 
-    uses: rubilmax/ethers-multicall-provider/.github/workflows/release.yml@main
+    uses: ./.github/workflows/release.yml
     secrets: inherit
