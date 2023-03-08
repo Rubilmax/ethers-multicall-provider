@@ -1,4 +1,4 @@
-import { BytesLike, Deferrable } from "ethers/lib/utils";
+import { BytesLike } from "ethers/lib/utils";
 
 import { BaseProvider, BlockTag, TransactionRequest } from "@ethersproject/providers";
 
@@ -21,14 +21,32 @@ export interface ContractCall {
 }
 
 export class MulticallProvider {
-  public static wrap<T extends BaseProvider>(provider: T) {
+  public static wrap<T extends BaseProvider>(provider: T, timeout = 12) {
     const multicall2 = Multicall2__factory.connect(multicall2Address, provider);
     const multicall3 = Multicall3__factory.connect(multicall3Address, provider);
 
     const queuedCalls: { [id: string]: ContractCall } = {};
 
-    const _provider = Object.assign(Object.create(Object.getPrototypeOf(provider)), provider) as T;
-    const _perform = _provider.perform.bind(_provider);
+    const prototype = Object.getPrototypeOf(provider);
+    const _provider = Object.assign(
+      Object.create(
+        prototype,
+        Object.fromEntries(
+          Object.entries(Object.getOwnPropertyDescriptors(prototype)).map(([name, descriptor]) => [
+            name,
+            {
+              ...descriptor,
+              ...(descriptor.value && { value: descriptor.value.bind(provider) }),
+              ...(descriptor.get && { get: descriptor.get.bind(provider) }),
+              ...(descriptor.set && { set: descriptor.set.bind(provider) }),
+            },
+          ])
+        )
+      ),
+      provider
+    ) as T;
+
+    const _perform = provider.perform.bind(provider);
 
     const performMulticall = async () => {
       const _queuedCalls = Object.entries(queuedCalls).map(([key, queuedCall]) => {
@@ -96,7 +114,7 @@ export class MulticallProvider {
       if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
         return _perform(method, params);
 
-      setTimeout(performMulticall, 10);
+      setTimeout(performMulticall, timeout);
 
       return new Promise<string>((resolve, reject) => {
         queuedCalls[to + data + blockTag.toString()] = {

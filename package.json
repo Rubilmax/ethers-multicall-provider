@@ -11,7 +11,7 @@
     "lint": "eslint ./src --fix",
     "prepare": "husky install",
     "test:watch": "jest --watch",
-    "test": "jest --coverage",
+    "test": "jest --coverage --detectOpenHandles",
     "typecheck": "tsc --noEmit",
     "typechain": "typechain --target ethers-v5 --out-dir src/types 'abis/*.json'"
   },

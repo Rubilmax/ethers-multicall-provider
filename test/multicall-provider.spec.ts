@@ -1,5 +1,7 @@
 import * as dotenv from "dotenv";
-import { ethers, getDefaultProvider } from "ethers";
+import { ethers } from "ethers";
+
+import { JsonRpcProvider, WebSocketProvider } from "@ethersproject/providers";
 
 import { MulticallProvider } from "../src";
 import { multicall3Address, multicall2Address } from "../src/constants";
@@ -8,16 +10,49 @@ import UniAbi from "./abis/Uni.json";
 
 dotenv.config();
 
-const httpRpcUrl = process.env.HTTP_RPC_URL || "https://rpc.ankr.com/eth";
-const wsRpcUrl = process.env.WS_RPC_URL || "wss://rpc.ankr.com/eth";
+const wsRpcUrl = process.env.WS_RPC_URL;
+const httpRpcUrl = process.env.HTTP_RPC_URL;
+
+if (!wsRpcUrl) throw Error(`Missing environment variable WS_RPC_URL`);
+if (!httpRpcUrl) throw Error(`Missing environment variable HTTP_RPC_URL`);
 
 const uniAddress = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984";
 const unknownAddress = "0xd6409e50c05879c5B9E091EB01E9Dd776d00A151";
 
 describe("ethers-multicall-provider", () => {
-  describe("Providers integration", () => {
+  let provider: JsonRpcProvider;
+
+  beforeEach(async () => {
+    provider = new JsonRpcProvider(httpRpcUrl);
+
+    await provider.ready;
+
+    const send = provider.send.bind(provider);
+    jest
+      .spyOn(provider, "send")
+      .mockImplementation(async (method, ...args) => send(method, ...args));
+  });
+
+  describe("Providers API", () => {
+    it("should have properties shallow cloned", () => {
+      const multicallProvider = MulticallProvider.wrap(provider);
+
+      expect(multicallProvider.network === provider.network);
+    });
+
+    it("should propagate getters & setters", () => {
+      const multicallProvider = MulticallProvider.wrap(provider);
+
+      multicallProvider.pollingInterval = provider.pollingInterval + 1;
+
+      expect(multicallProvider.pollingInterval === provider.pollingInterval);
+
+      provider.pollingInterval = provider.pollingInterval + 1;
+
+      expect(multicallProvider.pollingInterval === provider.pollingInterval);
+    });
+
     it("should getBlockNumber with http", async () => {
-      const provider = getDefaultProvider(httpRpcUrl) as ethers.providers.JsonRpcProvider;
       const multicallProvider = MulticallProvider.wrap(provider);
 
       const [actualBlockNumber, expectedBlockNumber] = await Promise.all([
@@ -28,36 +63,29 @@ describe("ethers-multicall-provider", () => {
       expect(actualBlockNumber).toEqual(expectedBlockNumber);
     });
 
-    it.only("should getBlockNumber with websocket", async () => {
-      const provider = getDefaultProvider(wsRpcUrl) as ethers.providers.WebSocketProvider;
-      const multicallProvider = MulticallProvider.wrap(provider);
+    it("should getBlockNumber with websocket", async () => {
+      const wsProvider = new WebSocketProvider(wsRpcUrl);
+      const multicallProvider = MulticallProvider.wrap(wsProvider);
 
       const [actualBlockNumber, expectedBlockNumber] = await Promise.all([
         multicallProvider.getBlockNumber(),
-        provider.getBlockNumber(),
+        wsProvider.getBlockNumber(),
       ]);
 
       expect(actualBlockNumber).toEqual(expectedBlockNumber);
 
-      return provider._websocket.terminate();
+      return wsProvider._websocket.terminate();
     });
   });
 
   describe("Calls batching", () => {
-    let provider: ethers.providers.JsonRpcProvider;
-    let multicallProvider: ethers.providers.JsonRpcProvider;
+    let multicallProvider: JsonRpcProvider;
     let signer: ethers.Signer;
 
     let uni: ethers.Contract;
     let unknownUni: ethers.Contract;
 
     beforeEach(() => {
-      provider = new ethers.providers.JsonRpcProvider(httpRpcUrl, 1);
-      const send = provider.send.bind(provider);
-      jest
-        .spyOn(provider, "send")
-        .mockImplementation(async (method, ...args) => send(method, ...args));
-
       multicallProvider = MulticallProvider.wrap(provider);
       signer = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, multicallProvider);
 
