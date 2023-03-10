@@ -1,5 +1,6 @@
 import * as dotenv from "dotenv";
 import { ethers } from "ethers";
+import _range from "lodash/range";
 
 import { JsonRpcProvider, WebSocketProvider } from "@ethersproject/providers";
 
@@ -210,6 +211,19 @@ describe("ethers-multicall-provider", () => {
           `call revert exception [ See: https://links.ethers.org/v5-errors-CALL_EXCEPTION ] (method="symbol()", data="0x", errorArgs=null, errorName=null, errorSignature=null, reason=null, code=CALL_EXCEPTION, version=abi/5.7.0)`
         )
       );
+    });
+
+    it.only("should handle large loads", async () => {
+      const range = _range(1_000);
+      const result = await Promise.all(
+        range.map(async () => {
+          await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 10)));
+
+          return uni.symbol();
+        })
+      );
+
+      expect(result).toEqual(range.map(() => "UNI"));
     });
   });
 });

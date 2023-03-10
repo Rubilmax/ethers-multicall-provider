@@ -25,7 +25,7 @@ export class MulticallProvider {
     const multicall2 = Multicall2__factory.connect(multicall2Address, provider);
     const multicall3 = Multicall3__factory.connect(multicall3Address, provider);
 
-    const queuedCalls: { [id: string]: ContractCall } = {};
+    let queuedCalls: ContractCall[] = [];
 
     const prototype = Object.getPrototypeOf(provider);
     const _provider = Object.assign(
@@ -49,13 +49,11 @@ export class MulticallProvider {
     const _perform = provider.perform.bind(provider);
 
     const performMulticall = async () => {
-      const _queuedCalls = Object.entries(queuedCalls).map(([key, queuedCall]) => {
-        delete queuedCalls[key];
+      const _queuedCalls = [...queuedCalls];
 
-        return queuedCall;
-      });
+      if (queuedCalls.length === 0) return;
 
-      if (_queuedCalls.length === 0) return;
+      queuedCalls = [];
 
       const blockTagCalls = _queuedCalls.reduce((acc, queuedCall) => {
         const blockTag = queuedCall.blockTag.toString();
@@ -117,14 +115,14 @@ export class MulticallProvider {
       setTimeout(performMulticall, timeout);
 
       return new Promise<string>((resolve, reject) => {
-        queuedCalls[to + data + blockTag.toString()] = {
+        queuedCalls.push({
           to,
           data,
           blockTag,
           multicallVersion,
           resolve,
           reject,
-        };
+        });
       });
     };
 
