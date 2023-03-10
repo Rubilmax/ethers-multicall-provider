@@ -13,8 +13,9 @@ Querying an RPC endpoint can be very costly (**100+ queries**) when loading data
 With multicall, batch these queries into a single, on-chain query, without additional over-head!
 
 - Integrates both Multicall2 & Multicall3, enabling faster queries up to block #12_336_033 on mainnet
-- Natively supports 25+ EVM-compatible chains on which Multicall3 is deployed
-- Enable 10x faster off-chain data queries, making UIs faster to render and reload
+- Natively supports 25+ EVM-compatible chains on which Multicall3 & Multicall2 are deployed
+- Enables 10x faster off-chain data queries, making UIs faster to render and reload
+- Built-in support for blockTag-specific contract calls, batching all calls made at the same block tag (if applicable)
 - Only fails specific failing smart contract calls when batching, which makes debugging as easy as with native ethers
 
 ### `ethers-multicall-provider` is a drop-in solution batching ALL smart contract calls!
@@ -79,7 +80,8 @@ Promise.all([uni.name(), uni.symbol()]).then(console.log);
 
 ## Limits
 
-Because calls are batched through the Multicall contract, all calls will have the Multicall contract as `msg.sender`. It may introduce unexpected behaviors.
+Because calls are batched through the Multicall contract, all calls will inherently have the Multicall contract as `msg.sender`. This has no impact on most queries, because most of the tiem `msg.sender` is not used in view functions ; but it may introduce unexpected behaviors in specific smart contracts.
+
 To circumvent this, just use the default ethers provider in places where you don't want `msg.sender` to be overriden.
 
 [build-img]: https://github.com/rubilmax/ethers-multicall-provider/actions/workflows/release.yml/badge.svg
