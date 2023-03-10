@@ -213,11 +213,11 @@ describe("ethers-multicall-provider", () => {
       );
     });
 
-    it.only("should handle large loads", async () => {
-      const range = _range(1_000);
+    it("should handle large loads", async () => {
+      const range = _range(5_000);
       const result = await Promise.all(
         range.map(async () => {
-          await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 10)));
+          await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 5_000)));
 
           return uni.symbol();
         })

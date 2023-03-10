@@ -1,4 +1,6 @@
 import { BytesLike } from "ethers/lib/utils";
+import { DebouncedFunc } from "lodash";
+import _debounce from "lodash/debounce";
 
 import { BaseProvider, BlockTag, TransactionRequest } from "@ethersproject/providers";
 
@@ -20,15 +22,18 @@ export interface ContractCall {
   reject: (reason?: any) => void;
 }
 
-export class MulticallProvider {
-  public static wrap<T extends BaseProvider>(provider: T, timeout = 12) {
-    const multicall2 = Multicall2__factory.connect(multicall2Address, provider);
-    const multicall3 = Multicall3__factory.connect(multicall3Address, provider);
+export interface MulticallProviderOverload {
+  _multicallDelay: number;
+  multicallDelay: number;
+  _performMulticall: DebouncedFunc<() => Promise<void>>;
+}
 
-    let queuedCalls: ContractCall[] = [];
+export class MulticallProvider {
+  public static wrap<T extends BaseProvider>(provider: T, delay = 20) {
+    // Proxy base provider
 
     const prototype = Object.getPrototypeOf(provider);
-    const _provider = Object.assign(
+    const multicallProvider = Object.assign(
       Object.create(
         prototype,
         Object.fromEntries(
@@ -44,11 +49,16 @@ export class MulticallProvider {
         )
       ),
       provider
-    ) as T;
+    ) as T & MulticallProviderOverload;
 
-    const _perform = provider.perform.bind(provider);
+    // Define execution context
 
-    const performMulticall = async () => {
+    const multicall2 = Multicall2__factory.connect(multicall2Address, provider);
+    const multicall3 = Multicall3__factory.connect(multicall3Address, provider);
+
+    let queuedCalls: ContractCall[] = [];
+
+    const _performMulticall = async () => {
       const _queuedCalls = [...queuedCalls];
 
       if (queuedCalls.length === 0) return;
@@ -64,7 +74,7 @@ export class MulticallProvider {
         };
       }, {} as { [blockTag: BlockTag]: ContractCall[] });
 
-      return Promise.all(
+      await Promise.all(
         Object.values(blockTagCalls).map(async (blockTagQueuedCalls) => {
           const { blockTag, multicallVersion } = blockTagQueuedCalls[0];
 
@@ -95,7 +105,28 @@ export class MulticallProvider {
       );
     };
 
-    _provider.perform = async function (method: string, params: any): Promise<string> {
+    // Overload with MulticallProvider functions
+
+    Object.defineProperty(multicallProvider, "multicallDelay", {
+      get: function () {
+        return this._multicallDelay;
+      },
+      set: function (delay: number) {
+        this._performMulticall?.flush();
+
+        this._multicallDelay = delay;
+
+        this._performMulticall = _debounce(_performMulticall, delay);
+      },
+      enumerable: true,
+    });
+    multicallProvider.multicallDelay = delay;
+
+    // Overload `BaseProvider.perform`
+
+    const _perform = provider.perform.bind(provider);
+
+    multicallProvider.perform = async function (method: string, params: any): Promise<string> {
       if (method !== "call") return _perform(method, params);
 
       const {
@@ -112,7 +143,7 @@ export class MulticallProvider {
       if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
         return _perform(method, params);
 
-      setTimeout(performMulticall, timeout);
+      this._performMulticall();
 
       return new Promise<string>((resolve, reject) => {
         queuedCalls.push({
@@ -126,7 +157,7 @@ export class MulticallProvider {
       });
     };
 
-    return _provider;
+    return multicallProvider;
   }
 }
 
