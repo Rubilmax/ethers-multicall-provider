@@ -224,7 +224,7 @@ describe("ethers-multicall-provider", () => {
       );
     });
 
-    it("should handle large loads", async () => {
+    it("should handle spaced loads", async () => {
       const range = _range(2_000);
       const result = await Promise.all(
         range.map(async () => {
@@ -235,6 +235,13 @@ describe("ethers-multicall-provider", () => {
       );
 
       expect(result).toEqual(range.map(() => "UNI"));
+    });
+
+    it("should handle large loads", async () => {
+      const range = _range(10_000);
+      const result = await Promise.all(range.map(() => uni.balanceOf(multicall3Address)));
+
+      expect(result.map((balance) => balance.toString())).toEqual(range.map(() => "0"));
     });
   });
 });

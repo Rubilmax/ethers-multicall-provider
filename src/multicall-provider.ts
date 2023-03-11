@@ -29,7 +29,11 @@ export interface MulticallProviderOverload {
 }
 
 export class MulticallProvider {
-  public static wrap<T extends BaseProvider>(provider: T, delay = 20) {
+  public static wrap<T extends BaseProvider>(
+    provider: T,
+    delay = 20,
+    maxMulticallDataLength = 500_000
+  ) {
     // Proxy base provider
 
     const prototype = Object.getPrototypeOf(provider);
@@ -76,17 +80,36 @@ export class MulticallProvider {
 
       await Promise.all(
         Object.values(blockTagCalls).map(async (blockTagQueuedCalls) => {
-          const { blockTag, multicallVersion } = blockTagQueuedCalls[0];
-
           const callStructs = blockTagQueuedCalls.map(({ to, data }) => ({
             target: to,
             callData: data,
           }));
 
+          // Split call in parts of max length to avoid too-long requests
+
+          let currentLength = 0;
+          const calls: (typeof callStructs)[] = [[]];
+
+          callStructs.forEach((callStruct) => {
+            const newLength = currentLength + callStruct.callData.length;
+
+            if (newLength > maxMulticallDataLength) {
+              currentLength = callStruct.callData.length;
+              calls.push([]);
+            } else currentLength = newLength;
+
+            calls[calls.length - 1].push(callStruct);
+          });
+
+          const { blockTag, multicallVersion } = blockTagQueuedCalls[0];
           const multicall = multicallVersion === MulticallVersion.V2 ? multicall2 : multicall3;
 
           try {
-            const res = await multicall.callStatic.tryAggregate(false, callStructs, { blockTag });
+            const res = (
+              await Promise.all(
+                calls.map((call) => multicall.callStatic.tryAggregate(false, call, { blockTag }))
+              )
+            ).flat();
 
             if (res.length !== callStructs.length)
               throw new Error(
