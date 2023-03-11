@@ -32,7 +32,7 @@ export class MulticallProvider {
   public static wrap<T extends BaseProvider>(
     provider: T,
     delay = 20,
-    maxMulticallDataLength = 500_000
+    maxMulticallDataLength = 450_000
   ) {
     // Proxy base provider
 
