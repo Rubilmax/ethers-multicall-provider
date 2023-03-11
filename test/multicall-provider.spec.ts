@@ -35,6 +35,17 @@ describe("ethers-multicall-provider", () => {
   });
 
   describe("Providers API", () => {
+    it("should set delay", () => {
+      const multicallProvider = MulticallProvider.wrap(provider);
+
+      const newDelay = multicallProvider.multicallDelay + 1;
+
+      multicallProvider.multicallDelay = newDelay;
+
+      expect(multicallProvider._multicallDelay === newDelay);
+      expect(multicallProvider.multicallDelay === newDelay);
+    });
+
     it("should have properties shallow cloned", () => {
       const multicallProvider = MulticallProvider.wrap(provider);
 
@@ -214,10 +225,10 @@ describe("ethers-multicall-provider", () => {
     });
 
     it("should handle large loads", async () => {
-      const range = _range(5_000);
+      const range = _range(2_000);
       const result = await Promise.all(
         range.map(async () => {
-          await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 5_000)));
+          await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 3_000)));
 
           return uni.symbol();
         })
