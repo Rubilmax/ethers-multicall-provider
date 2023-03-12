@@ -46,6 +46,16 @@ describe("ethers-multicall-provider", () => {
       expect(multicallProvider.multicallDelay === newDelay);
     });
 
+    it("should set maxMulticallDataLength", () => {
+      const multicallProvider = MulticallProvider.wrap(provider);
+
+      const newMaxMulticallDataLength = multicallProvider.maxMulticallDataLength + 1;
+
+      multicallProvider.maxMulticallDataLength = newMaxMulticallDataLength;
+
+      expect(multicallProvider.maxMulticallDataLength === newMaxMulticallDataLength);
+    });
+
     it("should have properties shallow cloned", () => {
       const multicallProvider = MulticallProvider.wrap(provider);
 

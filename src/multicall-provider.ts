@@ -25,10 +25,19 @@ export interface ContractCall {
 export interface MulticallProviderOverload {
   _multicallDelay: number;
   multicallDelay: number;
-  _performMulticall: DebouncedFunc<() => Promise<void>>;
+  maxMulticallDataLength: number;
+  _performMulticall: () => Promise<void>;
+  _debouncedPerformMulticall: DebouncedFunc<() => Promise<void>>;
 }
 
 export class MulticallProvider {
+  /**
+   * Wraps a given ethers provider to enable automatic call batching.
+   * @param provider The underlying provider to use to batch calls.
+   * @param delay The delay (in milliseconds) to wait before performing the ongoing batch of calls. Defaults to 16ms.
+   * @param maxMulticallDataLength The maximum total calldata length allowed in a multicall batch, to avoid having the RPC backend to revert because of too large (or too long) request. Set to 0 to disable this behavior. Defaults to 200k.
+   * @returns The multicall provider, which is a proxy to the given provider, automatically batching any call performed with it.
+   */
   public static wrap<T extends BaseProvider>(
     provider: T,
     delay = 16,
@@ -62,7 +71,7 @@ export class MulticallProvider {
 
     let queuedCalls: ContractCall[] = [];
 
-    const _performMulticall = async () => {
+    multicallProvider._performMulticall = async function () {
       const _queuedCalls = [...queuedCalls];
 
       if (queuedCalls.length === 0) return;
@@ -93,7 +102,7 @@ export class MulticallProvider {
           callStructs.forEach((callStruct) => {
             const newLength = currentLength + callStruct.callData.length;
 
-            if (newLength > maxMulticallDataLength) {
+            if (this.maxMulticallDataLength > 0 && newLength > this.maxMulticallDataLength) {
               currentLength = callStruct.callData.length;
               calls.push([]);
             } else currentLength = newLength;
@@ -135,15 +144,16 @@ export class MulticallProvider {
         return this._multicallDelay;
       },
       set: function (delay: number) {
-        this._performMulticall?.flush();
+        this._debouncedPerformMulticall?.flush();
 
         this._multicallDelay = delay;
 
-        this._performMulticall = _debounce(_performMulticall, delay);
+        this._debouncedPerformMulticall = _debounce(this._performMulticall, delay);
       },
       enumerable: true,
     });
     multicallProvider.multicallDelay = delay;
+    multicallProvider.maxMulticallDataLength = maxMulticallDataLength;
 
     // Overload `BaseProvider.perform`
 
@@ -166,7 +176,7 @@ export class MulticallProvider {
       if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
         return _perform(method, params);
 
-      this._performMulticall();
+      this._debouncedPerformMulticall();
 
       return new Promise<string>((resolve, reject) => {
         queuedCalls.push({
