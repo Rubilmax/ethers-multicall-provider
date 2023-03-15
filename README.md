@@ -80,7 +80,7 @@ Promise.all([uni.name(), uni.symbol()]).then(console.log);
 
 ## Limits
 
-Because calls are batched through the Multicall contract, all calls will inherently have the Multicall contract as `msg.sender`. This has no impact on most queries, because most of the tiem `msg.sender` is not used in view functions ; but it may introduce unexpected behaviors in specific smart contracts.
+Because calls are batched through the Multicall contract, all calls will inherently have the Multicall contract as `msg.sender`. This has no impact on most queries, because most of the time `msg.sender` is not used in view functions ; but it may introduce unexpected behaviors in specific smart contracts.
 
 To circumvent this, just use the default ethers provider in places where you don't want `msg.sender` to be overriden.
 
