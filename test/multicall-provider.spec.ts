@@ -4,7 +4,7 @@ import _range from "lodash/range";
 
 import { JsonRpcProvider, WebSocketProvider } from "@ethersproject/providers";
 
-import { MulticallProvider } from "../src";
+import { MulticallWrapper } from "../src";
 import { multicall3Address, multicall2Address } from "../src/constants";
 
 import UniAbi from "./abis/Uni.json";
@@ -36,46 +36,34 @@ describe("ethers-multicall-provider", () => {
 
   describe("Providers API", () => {
     it("should set delay", () => {
-      const multicallProvider = MulticallProvider.wrap(provider);
+      const multicallProvider = MulticallWrapper.wrap(provider);
 
       const newDelay = multicallProvider.multicallDelay + 1;
 
       multicallProvider.multicallDelay = newDelay;
 
-      expect(multicallProvider._multicallDelay === newDelay);
-      expect(multicallProvider.multicallDelay === newDelay);
+      expect(multicallProvider._multicallDelay).toEqual(newDelay);
+      expect(multicallProvider.multicallDelay).toEqual(newDelay);
     });
 
     it("should set maxMulticallDataLength", () => {
-      const multicallProvider = MulticallProvider.wrap(provider);
+      const multicallProvider = MulticallWrapper.wrap(provider);
 
       const newMaxMulticallDataLength = multicallProvider.maxMulticallDataLength + 1;
 
       multicallProvider.maxMulticallDataLength = newMaxMulticallDataLength;
 
-      expect(multicallProvider.maxMulticallDataLength === newMaxMulticallDataLength);
+      expect(multicallProvider.maxMulticallDataLength).toEqual(newMaxMulticallDataLength);
     });
 
     it("should have properties shallow cloned", () => {
-      const multicallProvider = MulticallProvider.wrap(provider);
+      const multicallProvider = MulticallWrapper.wrap(provider);
 
-      expect(multicallProvider.network === provider.network);
-    });
-
-    it("should propagate getters & setters", () => {
-      const multicallProvider = MulticallProvider.wrap(provider);
-
-      multicallProvider.pollingInterval = provider.pollingInterval + 1;
-
-      expect(multicallProvider.pollingInterval === provider.pollingInterval);
-
-      provider.pollingInterval = provider.pollingInterval + 1;
-
-      expect(multicallProvider.pollingInterval === provider.pollingInterval);
+      expect(multicallProvider.network).toEqual(provider.network);
     });
 
     it("should getBlockNumber with http", async () => {
-      const multicallProvider = MulticallProvider.wrap(provider);
+      const multicallProvider = MulticallWrapper.wrap(provider);
 
       const [actualBlockNumber, expectedBlockNumber] = await Promise.all([
         multicallProvider.getBlockNumber(),
@@ -87,7 +75,7 @@ describe("ethers-multicall-provider", () => {
 
     it("should getBlockNumber with websocket", async () => {
       const wsProvider = new WebSocketProvider(wsRpcUrl);
-      const multicallProvider = MulticallProvider.wrap(wsProvider);
+      const multicallProvider = MulticallWrapper.wrap(wsProvider);
 
       const [actualBlockNumber, expectedBlockNumber] = await Promise.all([
         multicallProvider.getBlockNumber(),
@@ -97,6 +85,27 @@ describe("ethers-multicall-provider", () => {
       expect(actualBlockNumber).toEqual(expectedBlockNumber);
 
       return wsProvider._websocket.terminate();
+    });
+
+    it("should query isMulticallProvider", async () => {
+      const multicallProvider = MulticallWrapper.wrap(provider);
+
+      expect(multicallProvider._isMulticallProvider).toEqual(true);
+      expect(MulticallWrapper.isMulticallProvider(multicallProvider)).toEqual(true);
+      expect(MulticallWrapper.isMulticallProvider(provider)).toEqual(false);
+    });
+
+    it("should return _provider = provider", async () => {
+      const multicallProvider = MulticallWrapper.wrap(provider);
+
+      expect(multicallProvider._provider).toEqual(provider);
+    });
+
+    it("should not wrap provider twice", async () => {
+      const multicallProvider = MulticallWrapper.wrap(provider);
+      const multicallProvider2 = MulticallWrapper.wrap(multicallProvider);
+
+      expect(multicallProvider2._provider).toEqual(multicallProvider._provider);
     });
   });
 
@@ -108,7 +117,7 @@ describe("ethers-multicall-provider", () => {
     let unknownUni: ethers.Contract;
 
     beforeEach(() => {
-      multicallProvider = MulticallProvider.wrap(provider);
+      multicallProvider = MulticallWrapper.wrap(provider);
       signer = new ethers.Wallet(ethers.Wallet.createRandom().privateKey, multicallProvider);
 
       uni = new ethers.Contract(uniAddress, UniAbi, signer);
@@ -119,10 +128,9 @@ describe("ethers-multicall-provider", () => {
       const result = await Promise.all([uni.name(), uni.symbol(), uni.decimals()]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(3);
+      expect(provider.send).toHaveBeenCalledTimes(2);
       expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: "0xca11bde05977b3631167028862be2a173976ca11",
@@ -136,10 +144,9 @@ describe("ethers-multicall-provider", () => {
       expect(uni.symbol()).resolves.toEqual("UNI");
       expect(await uni.decimals()).toEqual(18);
 
-      expect(provider.send).toHaveBeenCalledTimes(3);
+      expect(provider.send).toHaveBeenCalledTimes(2);
       expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: multicall3Address.toLowerCase(),
@@ -158,10 +165,9 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(3);
+      expect(provider.send).toHaveBeenCalledTimes(2);
       expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: multicall2Address.toLowerCase(),
@@ -180,8 +186,7 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(4);
-      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
+      expect(provider.send).toHaveBeenCalledTimes(3);
     });
 
     it("should not batch calls at earliest block", async () => {
@@ -194,8 +199,7 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(4);
-      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
+      expect(provider.send).toHaveBeenCalledTimes(3);
     });
 
     it("should throw a descriptive Error when querying unknown contract", async () => {

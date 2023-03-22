@@ -22,7 +22,7 @@ With multicall, batch these queries into a single, on-chain query, without addit
 
 ```diff
 const provider = getDefaultProvider("...");
-+  const multicallProvider = MulticallProvider.wrap(provider);
++  const multicallProvider = MulticallWrapper.wrap(provider);
 
 const contract = new ethers.Contract(
   address,
@@ -48,14 +48,14 @@ yarn add ethers-multicall-provider
 
 ## Usage
 
-Wrap any ethers provider using `MulticallProvider.wrap` and use the wrapped provider anywhere you want to batch calls!
+Wrap any ethers provider using `MulticallWrapper.wrap` and use the wrapped provider anywhere you want to batch calls!
 
 ```typescript
 import { ethers } from "ethers";
-import { MulticallProvider } from "ethers-multicall-provider";
+import { MulticallWrapper } from "ethers-multicall-provider";
 
 const provider = getDefaultProvider("...");
-const multicallProvider = MulticallProvider.wrap(provider);
+const multicallProvider = MulticallWrapper.wrap(provider);
 
 let uni = new ethers.Contract(
   "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",

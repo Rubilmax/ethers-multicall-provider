@@ -1,1 +1,1 @@
-export { default as MulticallProvider } from "./multicall-provider";
+export { default as MulticallWrapper, MulticallProvider } from "./multicall-provider";

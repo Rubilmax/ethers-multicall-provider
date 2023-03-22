@@ -22,15 +22,32 @@ export interface ContractCall {
   reject: (reason?: any) => void;
 }
 
-export interface MulticallProviderOverload {
+export type MulticallProvider<T extends BaseProvider> = T & {
+  readonly _isMulticallProvider: boolean;
+  readonly _provider: T;
+
   _multicallDelay: number;
   multicallDelay: number;
   maxMulticallDataLength: number;
+
   _performMulticall: () => Promise<void>;
   _debouncedPerformMulticall: DebouncedFunc<() => Promise<void>>;
-}
+};
 
-export class MulticallProvider {
+export class MulticallWrapper {
+  /**
+   * Returns whether a given provider is a multicall-enabled provider.
+   * @param provider The provider to check.
+   * @returns A boolean indicating whether the given provider is a multicall-enabled provider.
+   */
+  public static isMulticallProvider<T extends BaseProvider>(
+    provider: T
+  ): provider is MulticallProvider<T> {
+    if ((provider as MulticallProvider<T>)._isMulticallProvider) return true;
+
+    return false;
+  }
+
   /**
    * Wraps a given ethers provider to enable automatic call batching.
    * @param provider The underlying provider to use to batch calls.
@@ -42,27 +59,69 @@ export class MulticallProvider {
     provider: T,
     delay = 16,
     maxMulticallDataLength = 200_000
-  ) {
-    // Proxy base provider
+  ): MulticallProvider<T> {
+    if (MulticallWrapper.isMulticallProvider(provider))
+      return MulticallWrapper.wrap(provider._provider); // Do not overwrap when given provider is a multicall provider.
+
+    // Create prototype provider
 
     const prototype = Object.getPrototypeOf(provider);
     const multicallProvider = Object.assign(
-      Object.create(
-        prototype,
-        Object.fromEntries(
-          Object.entries(Object.getOwnPropertyDescriptors(prototype)).map(([name, descriptor]) => [
+      Object.create(prototype, {
+        _isMulticallProvider: {
+          value: true,
+          writable: false,
+          enumerable: true,
+          configurable: false,
+        },
+        _provider: {
+          value: provider,
+          writable: false,
+          enumerable: true,
+          configurable: false,
+        },
+        maxMulticallDataLength: {
+          value: maxMulticallDataLength,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        },
+        multicallDelay: {
+          get: function () {
+            return this._multicallDelay;
+          },
+          set: function (delay: number) {
+            this._debouncedPerformMulticall?.flush();
+
+            this._multicallDelay = delay;
+
+            this._debouncedPerformMulticall = _debounce(this._performMulticall, delay);
+          },
+          enumerable: true,
+          configurable: false,
+        },
+      }),
+      provider
+    ) as MulticallProvider<T>;
+
+    // Proxy underlying provider
+
+    Object.defineProperties(
+      multicallProvider,
+      Object.fromEntries(
+        Object.entries(Object.getOwnPropertyDescriptors(prototype)).map(
+          ([name, { value, get, set, ...descriptor }]) => [
             name,
             {
               ...descriptor,
-              ...(descriptor.value && { value: descriptor.value.bind(provider) }),
-              ...(descriptor.get && { get: descriptor.get.bind(provider) }),
-              ...(descriptor.set && { set: descriptor.set.bind(provider) }),
+              ...(value !== undefined && { value }),
+              ...(get != null && { get: get.bind(provider) }),
+              ...(set != null && { set: set.bind(provider) }),
             },
-          ])
+          ]
         )
-      ),
-      provider
-    ) as T & MulticallProviderOverload;
+      )
+    );
 
     // Define execution context
 
@@ -137,23 +196,9 @@ export class MulticallProvider {
       );
     };
 
-    // Overload with MulticallProvider functions
+    // Overload multicall provider delay
 
-    Object.defineProperty(multicallProvider, "multicallDelay", {
-      get: function () {
-        return this._multicallDelay;
-      },
-      set: function (delay: number) {
-        this._debouncedPerformMulticall?.flush();
-
-        this._multicallDelay = delay;
-
-        this._debouncedPerformMulticall = _debounce(this._performMulticall, delay);
-      },
-      enumerable: true,
-    });
     multicallProvider.multicallDelay = delay;
-    multicallProvider.maxMulticallDataLength = maxMulticallDataLength;
 
     // Overload `BaseProvider.perform`
 
@@ -194,4 +239,4 @@ export class MulticallProvider {
   }
 }
 
-export default MulticallProvider;
+export default MulticallWrapper;
