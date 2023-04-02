@@ -21,15 +21,8 @@ With multicall, batch these queries into a single, on-chain query, without addit
 ### `ethers-multicall-provider` is a drop-in solution batching ALL smart contract calls!
 
 ```diff
-const provider = getDefaultProvider("...");
-+  const multicallProvider = MulticallWrapper.wrap(provider);
-
-const contract = new ethers.Contract(
-  address,
-  SomeAbi,
--  provider
-+  multicallProvider
-);
+-  const provider = getDefaultProvider("...");
++  const provider = MulticallWrapper.wrap(getDefaultProvider("..."));
 ```
 
 ---
@@ -54,17 +47,11 @@ Wrap any ethers provider using `MulticallWrapper.wrap` and use the wrapped provi
 import { ethers } from "ethers";
 import { MulticallWrapper } from "ethers-multicall-provider";
 
-const provider = getDefaultProvider("...");
-const multicallProvider = MulticallWrapper.wrap(provider); // Modifies provider in place!
+const provider = MulticallWrapper.wrap(getDefaultProvider("..."));
 
 MulticallWrapper.isMulticallProvider(provider); // Returns true, only useful for type safety.
-MulticallWrapper.isMulticallProvider(multicallProvider); // Returns true, only useful for type safety.
 
-let uni = new ethers.Contract(
-  "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-  UniAbi,
-  multicallProvider
-);
+let uni = new ethers.Contract("0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", UniAbi, provider);
 
 // Calls performed simultaneously are automatically batched when using the multicall provider.
 Promise.all([
@@ -75,7 +62,7 @@ Promise.all([
 ]).then(console.log);
 
 // When batching calls is no longer expected, just disable it.
-multicallProvider.isMulticallEnabled = false;
+provider.isMulticallEnabled = false;
 
 // Calls performed simultaneously will still perform 2 separate on-chain calls.
 Promise.all([uni.name(), uni.symbol()]).then(console.log);
