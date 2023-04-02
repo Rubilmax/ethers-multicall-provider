@@ -110,15 +110,21 @@ export class MulticallWrapper {
       multicallProvider,
       Object.fromEntries(
         Object.entries(Object.getOwnPropertyDescriptors(prototype)).map(
-          ([name, { value, get, set, ...descriptor }]) => [
-            name,
-            {
-              ...descriptor,
-              ...(value !== undefined && { value }),
-              ...(get != null && { get: get.bind(provider) }),
-              ...(set != null && { set: set.bind(provider) }),
-            },
-          ]
+          ([name, { value, get, set, ...descriptor }]) => {
+            // console.log(name, value);
+
+            return [
+              name,
+              {
+                ...descriptor,
+                ...(value !== undefined && {
+                  value: typeof value === "function" ? value.bind(provider) : value,
+                }),
+                ...(get != null && { get: get.bind(provider) }),
+                ...(set != null && { set: set.bind(provider) }),
+              },
+            ];
+          }
         )
       )
     );
@@ -202,10 +208,8 @@ export class MulticallWrapper {
 
     // Overload `BaseProvider.perform`
 
-    const _perform = provider.perform.bind(provider);
-
     multicallProvider.perform = async function (method: string, params: any): Promise<string> {
-      if (method !== "call") return _perform(method, params);
+      if (method !== "call") return this._provider.perform(method, params);
 
       const {
         transaction: { to, data },
@@ -219,7 +223,7 @@ export class MulticallWrapper {
       const multicallVersion = getMulticallVersion(blockNumber, this.network.chainId);
 
       if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
-        return _perform(method, params);
+        return this._provider.perform(method, params);
 
       this._debouncedPerformMulticall();
 
