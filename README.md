@@ -55,7 +55,10 @@ import { ethers } from "ethers";
 import { MulticallWrapper } from "ethers-multicall-provider";
 
 const provider = getDefaultProvider("...");
-const multicallProvider = MulticallWrapper.wrap(provider);
+const multicallProvider = MulticallWrapper.wrap(provider); // Modifies provider in place!
+
+MulticallWrapper.isMulticallProvider(provider); // Returns true, only useful for type safety.
+MulticallWrapper.isMulticallProvider(multicallProvider); // Returns true, only useful for type safety.
 
 let uni = new ethers.Contract(
   "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
@@ -71,8 +74,8 @@ Promise.all([
   uni.inexistantFunction().catch(() => "default value"),
 ]).then(console.log);
 
-// When batching calls is no longer expected, just connect using the default ethers provider.
-uni = uni.connect(provider);
+// When batching calls is no longer expected, just disable it.
+multicallProvider.isMulticallEnabled = false;
 
 // Calls performed simultaneously will still perform 2 separate on-chain calls.
 Promise.all([uni.name(), uni.symbol()]).then(console.log);
