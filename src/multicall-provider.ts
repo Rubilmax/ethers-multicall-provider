@@ -24,11 +24,11 @@ export interface ContractCall {
 
 export type MulticallProvider<T extends BaseProvider> = T & {
   readonly _isMulticallProvider: boolean;
-  readonly _provider: T;
 
   _multicallDelay: number;
   multicallDelay: number;
   maxMulticallDataLength: number;
+  isMulticallEnabled: boolean;
 
   _performMulticall: () => Promise<void>;
   _debouncedPerformMulticall: DebouncedFunc<() => Promise<void>>;
@@ -60,74 +60,52 @@ export class MulticallWrapper {
     delay = 16,
     maxMulticallDataLength = 200_000
   ): MulticallProvider<T> {
-    if (MulticallWrapper.isMulticallProvider(provider))
-      return MulticallWrapper.wrap(provider._provider); // Do not overwrap when given provider is a multicall provider.
+    if (MulticallWrapper.isMulticallProvider(provider)) return provider; // Do not overwrap when given provider is already a multicall provider.
 
-    // Create prototype provider
+    // Overload provider
 
-    const prototype = Object.getPrototypeOf(provider);
-    const multicallProvider = Object.assign(
-      Object.create(prototype, {
-        _isMulticallProvider: {
-          value: true,
-          writable: false,
-          enumerable: true,
-          configurable: false,
+    Object.defineProperties(provider, {
+      _isMulticallProvider: {
+        value: true,
+        writable: false,
+        enumerable: true,
+        configurable: false,
+      },
+      _provider: {
+        value: provider,
+        writable: false,
+        enumerable: true,
+        configurable: false,
+      },
+      maxMulticallDataLength: {
+        value: maxMulticallDataLength,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      },
+      isMulticallEnabled: {
+        value: true,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      },
+      multicallDelay: {
+        get: function () {
+          return this._multicallDelay;
         },
-        _provider: {
-          value: provider,
-          writable: false,
-          enumerable: true,
-          configurable: false,
+        set: function (delay: number) {
+          this._debouncedPerformMulticall?.flush();
+
+          this._multicallDelay = delay;
+
+          this._debouncedPerformMulticall = _debounce(this._performMulticall, delay);
         },
-        maxMulticallDataLength: {
-          value: maxMulticallDataLength,
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        },
-        multicallDelay: {
-          get: function () {
-            return this._multicallDelay;
-          },
-          set: function (delay: number) {
-            this._debouncedPerformMulticall?.flush();
+        enumerable: true,
+        configurable: false,
+      },
+    });
 
-            this._multicallDelay = delay;
-
-            this._debouncedPerformMulticall = _debounce(this._performMulticall, delay);
-          },
-          enumerable: true,
-          configurable: false,
-        },
-      }),
-      provider
-    ) as MulticallProvider<T>;
-
-    // Proxy underlying provider
-
-    Object.defineProperties(
-      multicallProvider,
-      Object.fromEntries(
-        Object.entries(Object.getOwnPropertyDescriptors(prototype)).map(
-          ([name, { value, get, set, ...descriptor }]) => {
-            // console.log(name, value);
-
-            return [
-              name,
-              {
-                ...descriptor,
-                ...(value !== undefined && {
-                  value: typeof value === "function" ? value.bind(provider) : value,
-                }),
-                ...(get != null && { get: get.bind(provider) }),
-                ...(set != null && { set: set.bind(provider) }),
-              },
-            ];
-          }
-        )
-      )
-    );
+    const multicallProvider = provider as MulticallProvider<T>;
 
     // Define execution context
 
@@ -208,8 +186,10 @@ export class MulticallWrapper {
 
     // Overload `BaseProvider.perform`
 
+    const _perform = provider.perform.bind(provider);
+
     multicallProvider.perform = async function (method: string, params: any): Promise<string> {
-      if (method !== "call") return this._provider.perform(method, params);
+      if (method !== "call" || !this.isMulticallEnabled) return _perform(method, params);
 
       const {
         transaction: { to, data },
@@ -223,7 +203,7 @@ export class MulticallWrapper {
       const multicallVersion = getMulticallVersion(blockNumber, this.network.chainId);
 
       if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
-        return this._provider.perform(method, params);
+        return _perform(method, params);
 
       this._debouncedPerformMulticall();
 

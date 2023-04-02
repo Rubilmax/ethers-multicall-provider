@@ -4,7 +4,7 @@ import _range from "lodash/range";
 
 import { JsonRpcProvider, WebSocketProvider } from "@ethersproject/providers";
 
-import { MulticallWrapper } from "../src";
+import { MulticallProvider, MulticallWrapper } from "../src";
 import { multicall3Address, multicall2Address } from "../src/constants";
 
 import UniAbi from "./abis/Uni.json";
@@ -56,10 +56,10 @@ describe("ethers-multicall-provider", () => {
       expect(multicallProvider.maxMulticallDataLength).toEqual(newMaxMulticallDataLength);
     });
 
-    it("should have properties shallow cloned", () => {
+    it("should be the same provider", () => {
       const multicallProvider = MulticallWrapper.wrap(provider);
 
-      expect(multicallProvider.network).toEqual(provider.network);
+      expect(multicallProvider).toEqual(provider);
     });
 
     it("should getBlockNumber with http", async () => {
@@ -88,29 +88,17 @@ describe("ethers-multicall-provider", () => {
     });
 
     it("should query isMulticallProvider", async () => {
+      expect(MulticallWrapper.isMulticallProvider(provider)).toEqual(false);
+
       const multicallProvider = MulticallWrapper.wrap(provider);
 
       expect(multicallProvider._isMulticallProvider).toEqual(true);
       expect(MulticallWrapper.isMulticallProvider(multicallProvider)).toEqual(true);
-      expect(MulticallWrapper.isMulticallProvider(provider)).toEqual(false);
-    });
-
-    it("should return _provider = provider", async () => {
-      const multicallProvider = MulticallWrapper.wrap(provider);
-
-      expect(multicallProvider._provider).toEqual(provider);
-    });
-
-    it("should not wrap provider twice", async () => {
-      const multicallProvider = MulticallWrapper.wrap(provider);
-      const multicallProvider2 = MulticallWrapper.wrap(multicallProvider);
-
-      expect(multicallProvider2._provider).toEqual(multicallProvider._provider);
     });
   });
 
   describe("Calls batching", () => {
-    let multicallProvider: JsonRpcProvider;
+    let multicallProvider: MulticallProvider<JsonRpcProvider>;
     let signer: ethers.Signer;
 
     let uni: ethers.Contract;
