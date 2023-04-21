@@ -22,7 +22,7 @@ export interface ContractCall {
   reject: (reason?: any) => void;
 }
 
-export type MulticallProvider<T extends BaseProvider> = T & {
+export type MulticallProvider<T extends BaseProvider = BaseProvider> = T & {
   readonly _isMulticallProvider: boolean;
 
   _multicallDelay: number;
