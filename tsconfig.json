@@ -1,17 +1,13 @@
 {
   "compilerOptions": {
-    "incremental": true,
-    "target": "esnext",
-    "module": "commonjs",
+    "target": "es5",
     "declaration": true,
     "outDir": "lib",
     "rootDir": ".",
     "baseUrl": ".",
-    "moduleResolution": "nodenext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
   "include": ["src", "test"]
