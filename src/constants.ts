@@ -1,13 +1,21 @@
 // same address on all networks: https://github.com/mds1/multicall#multicall2-contract-addresses
 export const multicall2Address = "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696";
 
-// same address on all networks: https://github.com/mds1/multicall#multicall3-contract-addresses
+// same address on all networks: https://www.multicall3.com/deployments
 export const multicall3Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
+
+export const multicall3ZkSyncAddress = "0xF9cda624FBC7e059355ce98a31693d299FACd963";
 
 export const multicallAddresses = new Set([
   multicall2Address.toLowerCase(),
   multicall3Address.toLowerCase(),
+  multicall3ZkSyncAddress.toLowerCase(),
 ]);
+
+export const multicall3ChainAddress: { [chainId: number]: string } = {
+  280: multicall3ZkSyncAddress, // zkSync Ero Goerli
+  324: multicall3ZkSyncAddress, // zkSync Era
+};
 
 export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   1: 14353601, // Mainnet
@@ -38,6 +46,8 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   25: 1963112, // Cronos
   122: 16146628, // Fuse
   14: 3002461, // Flare
+  280: 5885690, // zkSync Ero Goerli
+  324: 3908235, // zkSync Era
 };
 
 export const multicall2DeploymentBlockNumbers: { [chainId: number]: number } = {
