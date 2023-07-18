@@ -4,20 +4,15 @@ import _debounce from "lodash/debounce";
 
 import { BaseProvider, BlockTag, TransactionRequest } from "@ethersproject/providers";
 
-import { multicall2Address, multicall3Address, multicallAddresses } from "./constants";
-import { Multicall2__factory, Multicall3__factory } from "./types";
-import { getBlockNumber, getMulticallVersion } from "./utils";
-
-export enum MulticallVersion {
-  V2 = "2",
-  V3 = "3",
-}
+import { multicallAddresses } from "./constants";
+import { Multicall2, Multicall3 } from "./types";
+import { getBlockNumber, getMulticall } from "./utils";
 
 export interface ContractCall {
   to: string;
   data: BytesLike;
   blockTag: BlockTag;
-  multicallVersion: MulticallVersion;
+  multicall: Multicall2 | Multicall3;
   resolve: (value: string | PromiseLike<string>) => void;
   reject: (reason?: any) => void;
 }
@@ -109,9 +104,6 @@ export class MulticallWrapper {
 
     // Define execution context
 
-    const multicall2 = Multicall2__factory.connect(multicall2Address, provider);
-    const multicall3 = Multicall3__factory.connect(multicall3Address, provider);
-
     let queuedCalls: ContractCall[] = [];
 
     multicallProvider._performMulticall = async function () {
@@ -153,8 +145,7 @@ export class MulticallWrapper {
             calls[calls.length - 1].push(callStruct);
           });
 
-          const { blockTag, multicallVersion } = blockTagQueuedCalls[0];
-          const multicall = multicallVersion === MulticallVersion.V2 ? multicall2 : multicall3;
+          const { blockTag, multicall } = blockTagQueuedCalls[0];
 
           try {
             const res = (
@@ -200,9 +191,9 @@ export class MulticallWrapper {
       };
 
       const blockNumber = getBlockNumber(blockTag);
-      const multicallVersion = getMulticallVersion(blockNumber, this.network.chainId);
+      const multicall = getMulticall(blockNumber, this.network.chainId, provider);
 
-      if (!to || !data || multicallVersion == null || multicallAddresses.has(to.toLowerCase()))
+      if (!to || !data || multicall == null || multicallAddresses.has(to.toLowerCase()))
         return _perform(method, params);
 
       this._debouncedPerformMulticall();
@@ -212,7 +203,7 @@ export class MulticallWrapper {
           to,
           data,
           blockTag,
-          multicallVersion,
+          multicall,
           resolve,
           reject,
         });

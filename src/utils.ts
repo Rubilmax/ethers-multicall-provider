@@ -1,9 +1,16 @@
+import { Signer } from "ethers";
 import { isHexString } from "ethers/lib/utils";
 
-import { BlockTag } from "@ethersproject/providers";
+import { BlockTag, Provider } from "@ethersproject/providers";
 
-import { multicall2DeploymentBlockNumbers, multicall3DeploymentBlockNumbers } from "./constants";
-import { MulticallVersion } from "./multicall-provider";
+import {
+  multicall2Address,
+  multicall2DeploymentBlockNumbers,
+  multicall3Address,
+  multicall3ChainAddress,
+  multicall3DeploymentBlockNumbers,
+} from "./constants";
+import { Multicall2__factory, Multicall3__factory } from "./types";
 
 export const getBlockNumber = (blockTag: BlockTag) => {
   if (isHexString(blockTag)) return parseInt(blockTag as string, 16);
@@ -13,14 +20,21 @@ export const getBlockNumber = (blockTag: BlockTag) => {
   return null;
 };
 
-export const getMulticallVersion = (blockNumber: number | null, chainId: number) => {
+export const getMulticall = (
+  blockNumber: number | null,
+  chainId: number,
+  provider: Signer | Provider
+) => {
   if (blockNumber != null) {
     if (blockNumber <= (multicall3DeploymentBlockNumbers[chainId] ?? Infinity)) {
       if (blockNumber <= (multicall2DeploymentBlockNumbers[chainId] ?? Infinity)) return null;
 
-      return MulticallVersion.V2;
+      return Multicall2__factory.connect(multicall2Address, provider);
     }
   }
 
-  return MulticallVersion.V3;
+  return Multicall3__factory.connect(
+    multicall3ChainAddress[chainId] || multicall3Address,
+    provider
+  );
 };
