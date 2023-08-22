@@ -10,6 +10,7 @@ import {
   multicall3ChainAddress,
   multicall3DeploymentBlockNumbers,
 } from "./constants";
+import { AbstractProvider } from "./multicall-provider";
 import { Multicall2__factory, Multicall3__factory } from "./types";
 
 export const getBlockNumber = (blockTag: BlockTag) => {
@@ -37,4 +38,10 @@ export const getMulticall = (
     multicall3ChainAddress[chainId] || multicall3Address,
     provider
   );
+};
+
+export const isAbstractProvider = (provider: Provider): provider is AbstractProvider => {
+  const candidate = provider as AbstractProvider;
+
+  return candidate._isProvider && !!candidate.network && !!candidate.perform;
 };

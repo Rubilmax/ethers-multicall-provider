@@ -2,11 +2,11 @@ import { BytesLike } from "ethers/lib/utils";
 import { DebouncedFunc } from "lodash";
 import _debounce from "lodash/debounce";
 
-import { BaseProvider, BlockTag, TransactionRequest } from "@ethersproject/providers";
+import { Provider, BlockTag, TransactionRequest, Network } from "@ethersproject/providers";
 
 import { multicallAddresses } from "./constants";
 import { Multicall2, Multicall3 } from "./types";
-import { getBlockNumber, getMulticall } from "./utils";
+import { getBlockNumber, getMulticall, isAbstractProvider } from "./utils";
 
 export interface ContractCall {
   to: string;
@@ -17,7 +17,12 @@ export interface ContractCall {
   reject: (reason?: any) => void;
 }
 
-export type MulticallProvider<T extends BaseProvider = BaseProvider> = T & {
+export interface AbstractProvider extends Provider {
+  network: Network;
+  perform(method: string, params: any): Promise<any>;
+}
+
+export type MulticallProvider<T extends Provider = Provider> = T & {
   readonly _isMulticallProvider: boolean;
 
   _multicallDelay: number;
@@ -35,7 +40,7 @@ export class MulticallWrapper {
    * @param provider The provider to check.
    * @returns A boolean indicating whether the given provider is a multicall-enabled provider.
    */
-  public static isMulticallProvider<T extends BaseProvider>(
+  public static isMulticallProvider<T extends AbstractProvider>(
     provider: T
   ): provider is MulticallProvider<T> {
     if ((provider as MulticallProvider<T>)._isMulticallProvider) return true;
@@ -50,11 +55,12 @@ export class MulticallWrapper {
    * @param maxMulticallDataLength The maximum total calldata length allowed in a multicall batch, to avoid having the RPC backend to revert because of too large (or too long) request. Set to 0 to disable this behavior. Defaults to 200k.
    * @returns The multicall provider, which is a proxy to the given provider, automatically batching any call performed with it.
    */
-  public static wrap<T extends BaseProvider>(
+  public static wrap<T extends Provider>(
     provider: T,
     delay = 16,
     maxMulticallDataLength = 200_000
   ): MulticallProvider<T> {
+    if (!isAbstractProvider(provider)) throw Error("Cannot wrap provider for multicall");
     if (MulticallWrapper.isMulticallProvider(provider)) return provider; // Do not overwrap when given provider is already a multicall provider.
 
     // Overload provider
@@ -100,7 +106,7 @@ export class MulticallWrapper {
       },
     });
 
-    const multicallProvider = provider as MulticallProvider<T>;
+    const multicallProvider = provider as MulticallProvider<T & AbstractProvider>;
 
     // Define execution context
 
