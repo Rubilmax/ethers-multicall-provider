@@ -2,11 +2,11 @@ import { BytesLike } from "ethers/lib/utils";
 import { DebouncedFunc } from "lodash";
 import _debounce from "lodash/debounce";
 
-import { Provider, BlockTag, TransactionRequest, Network } from "@ethersproject/providers";
+import { Provider, BlockTag, TransactionRequest } from "@ethersproject/providers";
 
 import { multicallAddresses } from "./constants";
 import { Multicall2, Multicall3 } from "./types";
-import { getBlockNumber, getMulticall, isAbstractProvider } from "./utils";
+import { MinimalProvider, getBlockNumber, getMulticall, isProviderCompatible } from "./utils";
 
 export interface ContractCall {
   to: string;
@@ -15,11 +15,6 @@ export interface ContractCall {
   multicall: Multicall2 | Multicall3;
   resolve: (value: string | PromiseLike<string>) => void;
   reject: (reason?: any) => void;
-}
-
-export interface AbstractProvider extends Provider {
-  network: Network;
-  perform(method: string, params: any): Promise<any>;
 }
 
 export type MulticallProvider<T extends Provider = Provider> = T & {
@@ -40,7 +35,7 @@ export class MulticallWrapper {
    * @param provider The provider to check.
    * @returns A boolean indicating whether the given provider is a multicall-enabled provider.
    */
-  public static isMulticallProvider<T extends AbstractProvider>(
+  public static isMulticallProvider<T extends Provider>(
     provider: T
   ): provider is MulticallProvider<T> {
     if ((provider as MulticallProvider<T>)._isMulticallProvider) return true;
@@ -60,7 +55,7 @@ export class MulticallWrapper {
     delay = 16,
     maxMulticallDataLength = 200_000
   ): MulticallProvider<T> {
-    if (!isAbstractProvider(provider)) throw Error("Cannot wrap provider for multicall");
+    if (!isProviderCompatible(provider)) throw Error("Cannot wrap provider for multicall");
     if (MulticallWrapper.isMulticallProvider(provider)) return provider; // Do not overwrap when given provider is already a multicall provider.
 
     // Overload provider
@@ -106,7 +101,7 @@ export class MulticallWrapper {
       },
     });
 
-    const multicallProvider = provider as MulticallProvider<T & AbstractProvider>;
+    const multicallProvider = provider as MulticallProvider<T & MinimalProvider>;
 
     // Define execution context
 
