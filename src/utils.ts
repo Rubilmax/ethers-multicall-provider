@@ -47,5 +47,5 @@ export const getMulticall = (
 export const isProviderCompatible = (provider: Provider): provider is MinimalProvider => {
   const candidate = provider as MinimalProvider;
 
-  return candidate._isProvider && !!candidate.network && !!candidate.perform;
+  return candidate._isProvider && !!candidate.perform;
 };
