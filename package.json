@@ -1,6 +1,6 @@
 {
   "name": "ethers-multicall-provider",
-  "version": "ethers-v6",
+  "version": "4.0.0",
   "description": "⚡🕰️ Drop-in solution to batch smart contract RPC calls in a single RPC query via Multicall!",
   "main": "lib/index.js",
   "type": "module",
