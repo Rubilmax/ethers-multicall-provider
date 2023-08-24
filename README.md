@@ -29,18 +29,6 @@ With multicall, batch these queries into a single, on-chain query, without addit
 
 ## Installation
 
-### Using ethers-v5
-
-```bash
-npm install ethers-multicall-provider
-```
-
-```bash
-yarn add ethers-multicall-provider
-```
-
-### Using ethers-v6
-
 ```bash
 npm install ethers-multicall-provider@next
 ```
