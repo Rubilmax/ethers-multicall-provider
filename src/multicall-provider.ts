@@ -18,7 +18,7 @@ export interface ContractCall<T = any> {
 export type MulticallProvider<T extends AbstractProvider = AbstractProvider> = T & {
   readonly _isMulticallProvider: boolean;
 
-  network: Network;
+  _networkPromise: Promise<Network>;
   _multicallDelay: number;
   multicallDelay: number;
   maxMulticallDataLength: number;
@@ -99,12 +99,9 @@ export class MulticallWrapper {
       },
     });
 
-    provider.on("network", (network) => {
-      Object.defineProperty(provider, "network", network);
-    });
-    provider.getNetwork();
-
     const multicallProvider = provider as MulticallProvider<T>;
+
+    multicallProvider._networkPromise = provider.getNetwork();
 
     // Define execution context
 
@@ -182,7 +179,7 @@ export class MulticallWrapper {
     // Overload `Provider._detectNetwork` to disable polling the network at each RPC call
 
     multicallProvider._detectNetwork = async function _detectNetwork(): Promise<Network> {
-      return this.network;
+      return this._networkPromise;
     };
 
     // Overload `Provider._perform`
@@ -197,8 +194,10 @@ export class MulticallWrapper {
         blockTag,
       } = req;
 
+      const network = await this._networkPromise;
+
       const blockNumber = getBlockNumber(blockTag);
-      const multicall = getMulticall(blockNumber, Number(this.network.chainId), this);
+      const multicall = getMulticall(blockNumber, Number(network.chainId), provider);
 
       if (!to || !data || multicall == null || multicallAddresses.has(to.toString().toLowerCase()))
         return _perform(req);
