@@ -1,25 +1,24 @@
-import { BytesLike } from "ethers/lib/utils";
+import { BlockTag, BytesLike, AbstractProvider, PerformActionRequest, Network } from "ethers";
 import { DebouncedFunc } from "lodash";
 import _debounce from "lodash/debounce";
 
-import { Provider, BlockTag, TransactionRequest } from "@ethersproject/providers";
-
 import { multicallAddresses } from "./constants";
 import { Multicall2, Multicall3 } from "./types";
-import { MinimalProvider, getBlockNumber, getMulticall, isProviderCompatible } from "./utils";
+import { getBlockNumber, getMulticall } from "./utils";
 
-export interface ContractCall {
+export interface ContractCall<T = any> {
   to: string;
   data: BytesLike;
   blockTag: BlockTag;
   multicall: Multicall2 | Multicall3;
-  resolve: (value: string | PromiseLike<string>) => void;
+  resolve: (value: T | PromiseLike<T>) => void;
   reject: (reason?: any) => void;
 }
 
-export type MulticallProvider<T extends Provider = Provider> = T & {
+export type MulticallProvider<T extends AbstractProvider = AbstractProvider> = T & {
   readonly _isMulticallProvider: boolean;
 
+  network: Network;
   _multicallDelay: number;
   multicallDelay: number;
   maxMulticallDataLength: number;
@@ -35,7 +34,7 @@ export class MulticallWrapper {
    * @param provider The provider to check.
    * @returns A boolean indicating whether the given provider is a multicall-enabled provider.
    */
-  public static isMulticallProvider<T extends Provider>(
+  public static isMulticallProvider<T extends AbstractProvider>(
     provider: T
   ): provider is MulticallProvider<T> {
     if ((provider as MulticallProvider<T>)._isMulticallProvider) return true;
@@ -50,12 +49,11 @@ export class MulticallWrapper {
    * @param maxMulticallDataLength The maximum total calldata length allowed in a multicall batch, to avoid having the RPC backend to revert because of too large (or too long) request. Set to 0 to disable this behavior. Defaults to 200k.
    * @returns The multicall provider, which is a proxy to the given provider, automatically batching any call performed with it.
    */
-  public static wrap<T extends Provider>(
+  public static wrap<T extends AbstractProvider>(
     provider: T,
     delay = 16,
     maxMulticallDataLength = 200_000
   ): MulticallProvider<T> {
-    if (!isProviderCompatible(provider)) throw Error("Cannot wrap provider for multicall");
     if (MulticallWrapper.isMulticallProvider(provider)) return provider; // Do not overwrap when given provider is already a multicall provider.
 
     // Overload provider
@@ -101,7 +99,12 @@ export class MulticallWrapper {
       },
     });
 
-    const multicallProvider = provider as MulticallProvider<T & MinimalProvider>;
+    provider.on("network", (network) => {
+      Object.defineProperty(provider, "network", network);
+    });
+    provider.getNetwork();
+
+    const multicallProvider = provider as MulticallProvider<T>;
 
     // Define execution context
 
@@ -121,7 +124,7 @@ export class MulticallWrapper {
           ...acc,
           [blockTag]: [queuedCall].concat(acc[blockTag] ?? []),
         };
-      }, {} as { [blockTag: BlockTag]: ContractCall[] });
+      }, {} as { [blockTag: string]: ContractCall[] });
 
       await Promise.all(
         Object.values(blockTagCalls).map(async (blockTagQueuedCalls) => {
@@ -151,7 +154,7 @@ export class MulticallWrapper {
           try {
             const res = (
               await Promise.all(
-                calls.map((call) => multicall.callStatic.tryAggregate(false, call, { blockTag }))
+                calls.map((call) => multicall.tryAggregate.staticCall(false, call, { blockTag }))
               )
             ).flat();
 
@@ -176,30 +179,33 @@ export class MulticallWrapper {
 
     multicallProvider.multicallDelay = delay;
 
-    // Overload `BaseProvider.perform`
+    // Overload `Provider._detectNetwork` to disable polling the network at each RPC call
 
-    const _perform = provider.perform.bind(provider);
+    multicallProvider._detectNetwork = async function _detectNetwork(): Promise<Network> {
+      return this.network;
+    };
 
-    multicallProvider.perform = async function (method: string, params: any): Promise<string> {
-      if (method !== "call" || !this.isMulticallEnabled) return _perform(method, params);
+    // Overload `Provider._perform`
+
+    const _perform = provider._perform.bind(provider);
+
+    multicallProvider._perform = async function <R = any>(req: PerformActionRequest): Promise<R> {
+      if (req.method !== "call" || !this.isMulticallEnabled) return _perform(req);
 
       const {
         transaction: { to, data },
         blockTag,
-      } = params as {
-        transaction: TransactionRequest;
-        blockTag: BlockTag;
-      };
+      } = req;
 
       const blockNumber = getBlockNumber(blockTag);
-      const multicall = getMulticall(blockNumber, this.network.chainId, provider);
+      const multicall = getMulticall(blockNumber, Number(this.network.chainId), this);
 
-      if (!to || !data || multicall == null || multicallAddresses.has(to.toLowerCase()))
-        return _perform(method, params);
+      if (!to || !data || multicall == null || multicallAddresses.has(to.toString().toLowerCase()))
+        return _perform(req);
 
       this._debouncedPerformMulticall();
 
-      return new Promise<string>((resolve, reject) => {
+      return new Promise<R>((resolve, reject) => {
         queuedCalls.push({
           to,
           data,
