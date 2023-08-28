@@ -32,21 +32,21 @@ With multicall, batch these queries into a single, on-chain query, without addit
 ### Using ethers-v5
 
 ```bash
-npm install ethers-multicall-provider
+npm install ethers-multicall-provider@3.1.2
 ```
 
 ```bash
-yarn add ethers-multicall-provider
+yarn add ethers-multicall-provider@3.1.2
 ```
 
 ### Using ethers-v6
 
 ```bash
-npm install ethers-multicall-provider@ethers-v6
+npm install ethers-multicall-provider
 ```
 
 ```bash
-yarn add ethers-multicall-provider@ethers-v6
+yarn add ethers-multicall-provider
 ```
 
 ---
