@@ -30,11 +30,11 @@ With multicall, batch these queries into a single, on-chain query, without addit
 ## Installation
 
 ```bash
-npm install ethers-multicall-provider@ethers-v6
+npm install ethers-multicall-provider
 ```
 
 ```bash
-yarn add ethers-multicall-provider@ethers-v6
+yarn add ethers-multicall-provider
 ```
 
 ---
@@ -70,9 +70,15 @@ Promise.all([uni.name(), uni.symbol()]).then(console.log);
 
 ## Limits
 
+### `msg.sender` override
+
 Because calls are batched through the Multicall contract, all calls will inherently have the Multicall contract as `msg.sender`. This has no impact on most queries, because most of the time `msg.sender` is not used in view functions ; but it may introduce unexpected behaviors in specific smart contracts.
 
 To circumvent this, just use the default ethers provider in places where you don't want `msg.sender` to be overriden.
+
+### Network cache
+
+Starting from `ethers-v6`, network is no longer cached in the provider, so that each RPC call first requests the network and updates the provider consequently. Using `ethers-multicall-provider`, the first network the provider is connected to is cached and can only be changed by calling `fetchNetwork()`.
 
 [build-img]: https://github.com/rubilmax/ethers-multicall-provider/actions/workflows/release.yml/badge.svg
 [build-url]: https://github.com/rubilmax/ethers-multicall-provider/actions/workflows/release.yml

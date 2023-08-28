@@ -18,7 +18,9 @@ export interface ContractCall<T = any> {
 export type MulticallProvider<T extends AbstractProvider = AbstractProvider> = T & {
   readonly _isMulticallProvider: boolean;
 
+  fetchNetwork(): Promise<Network>;
   _networkPromise: Promise<Network>;
+
   _multicallDelay: number;
   multicallDelay: number;
   maxMulticallDataLength: number;
@@ -101,8 +103,6 @@ export class MulticallWrapper {
 
     const multicallProvider = provider as MulticallProvider<T>;
 
-    multicallProvider._networkPromise = provider.getNetwork();
-
     // Define execution context
 
     let queuedCalls: ContractCall[] = [];
@@ -175,6 +175,18 @@ export class MulticallWrapper {
     // Overload multicall provider delay
 
     multicallProvider.multicallDelay = delay;
+
+    // Expose `Provider.fetchNetwork` to fetch & update the network cache when needed
+
+    const getNetwork = provider.getNetwork.bind(provider);
+
+    multicallProvider.fetchNetwork = async function fetchNetwork(): Promise<Network> {
+      this._networkPromise = getNetwork();
+
+      return this._networkPromise;
+    };
+
+    multicallProvider.fetchNetwork();
 
     // Overload `Provider._detectNetwork` to disable polling the network at each RPC call
 

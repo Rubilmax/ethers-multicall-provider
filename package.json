@@ -76,8 +76,7 @@
   },
   "release": {
     "branches": [
-      "main",
-      "ethers-v6"
+      "main"
     ],
     "plugins": [
       [

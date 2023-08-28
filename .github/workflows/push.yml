@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - ethers-v6
 
 jobs:
   test:

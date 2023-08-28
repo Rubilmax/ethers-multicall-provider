@@ -17,7 +17,6 @@ on:
 jobs:
   jest:
     runs-on: ubuntu-latest
-    if: github.head_ref != 'ethers-v6' # already triggered by push
 
     strategy:
       matrix:
