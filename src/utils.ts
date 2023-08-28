@@ -1,7 +1,4 @@
-import { Signer } from "ethers";
-import { isHexString } from "ethers/lib/utils";
-
-import { BlockTag, Network, Provider } from "@ethersproject/providers";
+import { BlockTag, ContractRunner, isHexString } from "ethers";
 
 import {
   multicall2Address,
@@ -12,9 +9,9 @@ import {
 } from "./constants";
 import { Multicall2__factory, Multicall3__factory } from "./types";
 
-export interface MinimalProvider extends Provider {
-  network: Network;
-  perform(method: string, params: any): Promise<any>;
+export enum MulticallVersion {
+  V2 = "2",
+  V3 = "3",
 }
 
 export const getBlockNumber = (blockTag: BlockTag) => {
@@ -28,24 +25,15 @@ export const getBlockNumber = (blockTag: BlockTag) => {
 export const getMulticall = (
   blockNumber: number | null,
   chainId: number,
-  provider: Signer | Provider
+  runner: ContractRunner
 ) => {
   if (blockNumber != null) {
     if (blockNumber <= (multicall3DeploymentBlockNumbers[chainId] ?? Infinity)) {
       if (blockNumber <= (multicall2DeploymentBlockNumbers[chainId] ?? Infinity)) return null;
 
-      return Multicall2__factory.connect(multicall2Address, provider);
+      return Multicall2__factory.connect(multicall2Address, runner);
     }
   }
 
-  return Multicall3__factory.connect(
-    multicall3ChainAddress[chainId] || multicall3Address,
-    provider
-  );
-};
-
-export const isProviderCompatible = (provider: Provider): provider is MinimalProvider => {
-  const candidate = provider as MinimalProvider;
-
-  return candidate._isProvider && !!candidate.perform;
+  return Multicall3__factory.connect(multicall3ChainAddress[chainId] || multicall3Address, runner);
 };

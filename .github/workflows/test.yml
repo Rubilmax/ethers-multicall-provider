@@ -17,7 +17,6 @@ on:
 jobs:
   jest:
     runs-on: ubuntu-latest
-    if: github.head_ref != 'next' # already triggered by push
 
     strategy:
       matrix:

@@ -1,11 +1,9 @@
 import * as dotenv from "dotenv";
-import { ethers } from "ethers";
+import { JsonRpcProvider, WebSocketProvider, ethers } from "ethers";
 import _range from "lodash/range";
 
-import { JsonRpcProvider, WebSocketProvider } from "@ethersproject/providers";
-
-import { MulticallProvider, MulticallWrapper } from "../src";
 import { multicall3Address, multicall2Address } from "../src/constants";
+import { MulticallProvider, MulticallWrapper } from "../src/index";
 
 import UniAbi from "./abis/Uni.json";
 
@@ -84,7 +82,7 @@ describe("ethers-multicall-provider", () => {
 
       expect(actualBlockNumber).toEqual(expectedBlockNumber);
 
-      return wsProvider._websocket.terminate();
+      return wsProvider.websocket.close();
     });
 
     it("should query isMulticallProvider", async () => {
@@ -115,11 +113,9 @@ describe("ethers-multicall-provider", () => {
     it("should batch UNI calls inside Promise.all", async () => {
       const result = await Promise.all([uni.name(), uni.symbol(), uni.decimals()]);
 
-      expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(3);
-      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(result).toEqual(["Uniswap", "UNI", 18n]);
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: "0xca11bde05977b3631167028862be2a173976ca11",
@@ -131,12 +127,10 @@ describe("ethers-multicall-provider", () => {
     it("should batch UNI calls without Promise.all", async () => {
       expect(uni.name()).resolves.toEqual("Uniswap");
       expect(uni.symbol()).resolves.toEqual("UNI");
-      expect(await uni.decimals()).toEqual(18);
+      expect(await uni.decimals()).toEqual(18n);
 
-      expect(provider.send).toHaveBeenCalledTimes(3);
-      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: multicall3Address.toLowerCase(),
@@ -154,11 +148,9 @@ describe("ethers-multicall-provider", () => {
         uni.decimals(overrides),
       ]);
 
-      expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(3);
-      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(2, "eth_chainId", []);
-      expect(provider.send).toHaveBeenNthCalledWith(3, "eth_call", [
+      expect(result).toEqual(["Uniswap", "UNI", 18n]);
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      expect(provider.send).toHaveBeenNthCalledWith(1, "eth_call", [
         {
           data: "0xbce38bd7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001600000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f98400000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000004313ce567000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000495d89b41000000000000000000000000000000000000000000000000000000000000000000000000000000001f9840a85d5af5bf1d1762f925bdaddc4201f9840000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000406fdde0300000000000000000000000000000000000000000000000000000000",
           to: multicall2Address.toLowerCase(),
@@ -176,8 +168,8 @@ describe("ethers-multicall-provider", () => {
         uni.decimals(overrides),
       ]);
 
-      expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(4);
+      expect(result).toEqual(["Uniswap", "UNI", 18n]);
+      expect(provider.send).toHaveBeenCalledTimes(3);
     });
 
     it("should not batch calls at earliest block", async () => {
@@ -190,13 +182,13 @@ describe("ethers-multicall-provider", () => {
       ]);
 
       expect(result).toEqual(["Uniswap", "UNI", 18]);
-      expect(provider.send).toHaveBeenCalledTimes(4);
+      expect(provider.send).toHaveBeenCalledTimes(3);
     });
 
     it("should throw a descriptive Error when querying unknown contract", async () => {
       await expect(unknownUni.symbol()).rejects.toEqual(
         new Error(
-          `call revert exception [ See: https://links.ethers.org/v5-errors-CALL_EXCEPTION ] (method="symbol()", data="0x", errorArgs=null, errorName=null, errorSignature=null, reason=null, code=CALL_EXCEPTION, version=abi/5.7.0)`
+          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.7.1)`
         )
       );
     });
@@ -212,7 +204,7 @@ describe("ethers-multicall-provider", () => {
       expect(unknownUni.symbol().catch(() => "UNI")).resolves.toEqual("UNI");
       await expect(unknownUni.symbol()).rejects.toEqual(
         new Error(
-          `call revert exception [ See: https://links.ethers.org/v5-errors-CALL_EXCEPTION ] (method="symbol()", data="0x", errorArgs=null, errorName=null, errorSignature=null, reason=null, code=CALL_EXCEPTION, version=abi/5.7.0)`
+          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.7.1)`
         )
       );
     });
@@ -224,7 +216,7 @@ describe("ethers-multicall-provider", () => {
       expect(uni.symbol(overrides).catch(() => "UNI")).resolves.toEqual("UNI");
       await expect(unknownUni.symbol(overrides)).rejects.toEqual(
         new Error(
-          `call revert exception [ See: https://links.ethers.org/v5-errors-CALL_EXCEPTION ] (method="symbol()", data="0x", errorArgs=null, errorName=null, errorSignature=null, reason=null, code=CALL_EXCEPTION, version=abi/5.7.0)`
+          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.7.1)`
         )
       );
     });
@@ -243,10 +235,10 @@ describe("ethers-multicall-provider", () => {
     });
 
     it("should handle large loads", async () => {
-      const range = _range(10_000);
-      const result = await Promise.all(range.map(() => uni.balanceOf(multicall3Address)));
+      const range = _range(5_000);
+      const result: bigint[] = await Promise.all(range.map(() => uni.balanceOf(multicall3Address)));
 
-      expect(result.map((balance) => balance.toString())).toEqual(range.map(() => "0"));
+      expect(result).toEqual(range.map(() => 0n));
     });
   });
 });

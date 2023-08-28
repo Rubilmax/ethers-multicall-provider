@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2020",
     "declaration": true,
     "outDir": "lib",
     "rootDir": ".",
@@ -8,6 +8,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "moduleResolution": "node",
     "resolveJsonModule": true
   },
   "include": ["src", "test"]
