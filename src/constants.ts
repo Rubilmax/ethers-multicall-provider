@@ -48,6 +48,10 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   14: 3002461, // Flare
   280: 5885690, // zkSync Ero Goerli
   324: 3908235, // zkSync Era
+  1101: 57746, // Polygon zkEVM
+  1442: 525686, // Polygon zkEVM Testnet
+  8453: 5022, // Base
+  84531: 1376988, // Base Testnet
 };
 
 export const multicall2DeploymentBlockNumbers: { [chainId: number]: number } = {
