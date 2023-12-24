@@ -1,18 +1,19 @@
+import DataLoader from "dataloader";
 import { BlockTag, BytesLike, AbstractProvider, PerformActionRequest, Network } from "ethers";
-import { DebouncedFunc } from "lodash";
-import _debounce from "lodash/debounce";
 
 import { multicallAddresses } from "./constants";
 import { Multicall2, Multicall3 } from "./types";
 import { getBlockNumber, getMulticall } from "./utils";
 
-export interface ContractCall<T = any> {
+export interface ContractCall {
   to: string;
-  data: BytesLike;
+  data: string;
   blockTag: BlockTag;
+}
+
+export interface ContractCallRequest {
+  call: ContractCall;
   multicall: Multicall2 | Multicall3;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: any) => void;
 }
 
 export type MulticallProvider<T extends AbstractProvider = AbstractProvider> = T & {
@@ -21,13 +22,8 @@ export type MulticallProvider<T extends AbstractProvider = AbstractProvider> = T
   fetchNetwork(): Promise<Network>;
   _networkPromise: Promise<Network>;
 
-  _multicallDelay: number;
-  multicallDelay: number;
   maxMulticallDataLength: number;
   isMulticallEnabled: boolean;
-
-  _performMulticall: () => Promise<void>;
-  _debouncedPerformMulticall: DebouncedFunc<() => Promise<void>>;
 };
 
 export class MulticallWrapper {
@@ -47,14 +43,12 @@ export class MulticallWrapper {
   /**
    * Wraps a given ethers provider to enable automatic call batching.
    * @param provider The underlying provider to use to batch calls.
-   * @param delay The delay (in milliseconds) to wait before performing the ongoing batch of calls. Defaults to 16ms.
-   * @param maxMulticallDataLength The maximum total calldata length allowed in a multicall batch, to avoid having the RPC backend to revert because of too large (or too long) request. Set to 0 to disable this behavior. Defaults to 200k.
+   * @param maxMulticallDataLength The maximum total calldata length allowed in a multicall batch, to avoid having the RPC backend to revert because of too large (or too long) request. Set to 0 to disable this behavior. Defaults to 0. Typically 480k for Alchemy.
    * @returns The multicall provider, which is a proxy to the given provider, automatically batching any call performed with it.
    */
   public static wrap<T extends AbstractProvider>(
     provider: T,
-    delay = 16,
-    maxMulticallDataLength = 200_000
+    maxMulticallDataLength = 0
   ): MulticallProvider<T> {
     if (MulticallWrapper.isMulticallProvider(provider)) return provider; // Do not overwrap when given provider is already a multicall provider.
 
@@ -85,96 +79,86 @@ export class MulticallWrapper {
         enumerable: true,
         configurable: true,
       },
-      multicallDelay: {
-        get: function () {
-          return this._multicallDelay;
-        },
-        set: function (delay: number) {
-          this._debouncedPerformMulticall?.flush();
-
-          this._multicallDelay = delay;
-
-          this._debouncedPerformMulticall = _debounce(this._performMulticall, delay);
-        },
-        enumerable: true,
-        configurable: false,
-      },
     });
 
     const multicallProvider = provider as MulticallProvider<T>;
 
     // Define execution context
 
-    let queuedCalls: ContractCall[] = [];
+    const dataLoader = new DataLoader<ContractCallRequest, any, string>(
+      async function (reqs) {
+        const blockTagReqs: { [blockTag: string]: (ContractCallRequest & { index: number })[] } =
+          {};
 
-    multicallProvider._performMulticall = async function () {
-      const _queuedCalls = [...queuedCalls];
+        reqs.forEach(({ call, multicall }, index) => {
+          const blockTag = call.blockTag.toString();
 
-      if (queuedCalls.length === 0) return;
+          if (!blockTagReqs[blockTag]) blockTagReqs[blockTag] = [];
 
-      queuedCalls = [];
+          blockTagReqs[blockTag].push({ call, multicall, index });
+        });
 
-      const blockTagCalls = _queuedCalls.reduce((acc, queuedCall) => {
-        const blockTag = queuedCall.blockTag.toString();
+        const results = new Array(reqs.length);
 
-        return {
-          ...acc,
-          [blockTag]: [queuedCall].concat(acc[blockTag] ?? []),
-        };
-      }, {} as { [blockTag: string]: ContractCall[] });
+        await Promise.all(
+          Object.values(blockTagReqs).map(async (blockTagReqs) => {
+            const callStructs = blockTagReqs.map(({ call }) => ({
+              target: call.to,
+              callData: call.data,
+            }));
 
-      await Promise.all(
-        Object.values(blockTagCalls).map(async (blockTagQueuedCalls) => {
-          const callStructs = blockTagQueuedCalls.map(({ to, data }) => ({
-            target: to,
-            callData: data,
-          }));
+            // Split call in parts of max length to avoid too-long requests
 
-          // Split call in parts of max length to avoid too-long requests
+            let currentLength = 0;
+            const calls: (typeof callStructs)[] = [];
 
-          let currentLength = 0;
-          const calls: (typeof callStructs)[] = [[]];
-
-          callStructs.forEach((callStruct) => {
-            const newLength = currentLength + callStruct.callData.length;
-
-            if (this.maxMulticallDataLength > 0 && newLength > this.maxMulticallDataLength) {
-              currentLength = callStruct.callData.length;
+            if (multicallProvider.maxMulticallDataLength > 0) {
               calls.push([]);
-            } else currentLength = newLength;
 
-            calls[calls.length - 1].push(callStruct);
-          });
+              callStructs.forEach((callStruct) => {
+                const newLength = currentLength + callStruct.callData.length;
 
-          const { blockTag, multicall } = blockTagQueuedCalls[0];
+                if (newLength > multicallProvider.maxMulticallDataLength) {
+                  currentLength = callStruct.callData.length;
+                  calls.push([]);
+                } else currentLength = newLength;
 
-          try {
-            const res = (
-              await Promise.all(
-                calls.map((call) => multicall.tryAggregate.staticCall(false, call, { blockTag }))
-              )
-            ).flat();
+                calls[calls.length - 1].push(callStruct);
+              });
+            } else calls.push(callStructs);
 
-            if (res.length !== callStructs.length)
-              throw new Error(
-                `Unexpected multicall response length: received ${res.length}; expected ${callStructs.length}`
-              );
+            const {
+              call: { blockTag },
+              multicall,
+            } = blockTagReqs[0];
 
-            blockTagQueuedCalls.forEach(({ resolve }, i) => {
-              resolve(res[i].returnData);
-            });
-          } catch (error: any) {
-            blockTagQueuedCalls.forEach(({ reject }) => {
-              reject(error);
-            });
-          }
-        })
-      );
-    };
+            try {
+              const res = (
+                await Promise.all(
+                  calls.map((call) => multicall.tryAggregate.staticCall(false, call, { blockTag }))
+                )
+              ).flat();
 
-    // Overload multicall provider delay
+              if (res.length !== callStructs.length)
+                throw new Error(
+                  `Unexpected multicall response length: received ${res.length}; expected ${callStructs.length}`
+                );
 
-    multicallProvider.multicallDelay = delay;
+              blockTagReqs.forEach(({ index }, i) => {
+                results[index] = res[i].returnData;
+              });
+            } catch (error: any) {
+              blockTagReqs.forEach(({ index }) => {
+                results[index] = error;
+              });
+            }
+          })
+        );
+
+        return results;
+      },
+      { cacheKeyFn: ({ call }) => (call.to + call.data + call.blockTag.toString()).toLowerCase() }
+    );
 
     // Expose `Provider.fetchNetwork` to fetch & update the network cache when needed
 
@@ -198,7 +182,7 @@ export class MulticallWrapper {
 
     const _perform = provider._perform.bind(provider);
 
-    multicallProvider._perform = async function <R = any>(req: PerformActionRequest): Promise<R> {
+    multicallProvider._perform = async function (req: PerformActionRequest): Promise<any> {
       if (req.method !== "call" || !this.isMulticallEnabled) return _perform(req);
 
       const {
@@ -206,25 +190,18 @@ export class MulticallWrapper {
         blockTag,
       } = req;
 
+      if (!to || !data || multicallAddresses.has(to.toString().toLowerCase())) return _perform(req);
+
       const network = await this._networkPromise;
 
       const blockNumber = getBlockNumber(blockTag);
       const multicall = getMulticall(blockNumber, Number(network.chainId), provider);
 
-      if (!to || !data || multicall == null || multicallAddresses.has(to.toString().toLowerCase()))
-        return _perform(req);
+      if (multicall == null) return _perform(req);
 
-      this._debouncedPerformMulticall();
-
-      return new Promise<R>((resolve, reject) => {
-        queuedCalls.push({
-          to,
-          data,
-          blockTag,
-          multicall,
-          resolve,
-          reject,
-        });
+      return dataLoader.load({
+        call: { to, data, blockTag },
+        multicall,
       });
     };
 
