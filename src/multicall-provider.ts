@@ -1,5 +1,12 @@
 import DataLoader from "dataloader";
-import { BlockTag, BytesLike, AbstractProvider, PerformActionRequest, Network } from "ethers";
+import {
+  BlockTag,
+  BytesLike,
+  AbstractProvider,
+  PerformActionRequest,
+  Network,
+  isHexString,
+} from "ethers";
 
 import { multicallAddresses } from "./constants";
 import { Multicall2, Multicall3 } from "./types";
@@ -48,7 +55,8 @@ export class MulticallWrapper {
    */
   public static wrap<T extends AbstractProvider>(
     provider: T,
-    maxMulticallDataLength = 0
+    maxMulticallDataLength = 0,
+    cache = true
   ): MulticallProvider<T> {
     if (MulticallWrapper.isMulticallProvider(provider)) return provider; // Do not overwrap when given provider is already a multicall provider.
 
@@ -157,7 +165,10 @@ export class MulticallWrapper {
 
         return results;
       },
-      { cacheKeyFn: ({ call }) => (call.to + call.data + call.blockTag.toString()).toLowerCase() }
+      {
+        cache,
+        cacheKeyFn: ({ call }) => (call.to + call.data + call.blockTag.toString()).toLowerCase(),
+      }
     );
 
     // Expose `Provider.fetchNetwork` to fetch & update the network cache when needed
@@ -199,9 +210,15 @@ export class MulticallWrapper {
 
       if (multicall == null) return _perform(req);
 
-      return dataLoader.load({
+      const request = {
         call: { to, data, blockTag },
         multicall,
+      };
+
+      return dataLoader.load(request).then((value) => {
+        if (blockNumber == null) dataLoader.clear(request);
+
+        return value;
       });
     };
 

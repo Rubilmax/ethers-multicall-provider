@@ -1,5 +1,12 @@
 import * as dotenv from "dotenv";
-import { JsonRpcProvider, WebSocketProvider, ZeroAddress, ethers } from "ethers";
+import {
+  AbiCoder,
+  JsonRpcProvider,
+  WebSocketProvider,
+  ZeroAddress,
+  ethers,
+  toUtf8Bytes,
+} from "ethers";
 import _range from "lodash/range";
 
 import { multicall3Address, multicall2Address } from "../src/constants";
@@ -250,6 +257,38 @@ describe("ethers-multicall-provider", () => {
       );
 
       expect(provider.send).toHaveBeenCalledTimes(4);
+    });
+
+    it.only("should not cache latest request", async () => {
+      jest
+        .spyOn(provider, "send")
+        .mockImplementation(() =>
+          Promise.resolve(
+            AbiCoder.defaultAbiCoder().encode(
+              ["(bool, bytes)[]"],
+              [[[true, AbiCoder.defaultAbiCoder().encode(["string"], ["UNI1"])]]]
+            )
+          )
+        );
+
+      const symbol1 = await uni.symbol();
+
+      jest
+        .spyOn(provider, "send")
+        .mockImplementation(() =>
+          Promise.resolve(
+            AbiCoder.defaultAbiCoder().encode(
+              ["(bool, bytes)[]"],
+              [[[true, AbiCoder.defaultAbiCoder().encode(["string"], ["UNI2"])]]]
+            )
+          )
+        );
+
+      const symbol2 = await uni.symbol();
+
+      expect(symbol1).toEqual("UNI1");
+      expect(symbol2).toEqual("UNI2");
+      expect(provider.send).toHaveBeenCalledTimes(2);
     });
   });
 });
