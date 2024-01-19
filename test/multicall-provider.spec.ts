@@ -259,7 +259,7 @@ describe("ethers-multicall-provider", () => {
       expect(provider.send).toHaveBeenCalledTimes(4);
     });
 
-    it.only("should not cache latest request", async () => {
+    it("should not cache latest request", async () => {
       jest
         .spyOn(provider, "send")
         .mockImplementation(() =>

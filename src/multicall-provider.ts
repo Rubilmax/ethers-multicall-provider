@@ -211,7 +211,7 @@ export class MulticallWrapper {
       if (multicall == null) return _perform(req);
 
       const request = {
-        call: { to, data, blockTag },
+        call: { to, data, blockTag, blockNumber },
         multicall,
       };
 
