@@ -1,4 +1,4 @@
-import { BlockTag, ContractRunner, isHexString } from "ethers";
+import { BlockTag, ContractRunner, isHexString, toNumber } from "ethers";
 
 import {
   multicall2Address,
@@ -16,6 +16,7 @@ export enum MulticallVersion {
 
 export const getBlockNumber = (blockTag: BlockTag) => {
   if (isHexString(blockTag)) return parseInt(blockTag as string, 16);
+  else if (typeof blockTag === "bigint") return toNumber(blockTag);
   else if (typeof blockTag === "number") return blockTag;
   else if (blockTag === "earliest") return 0;
 
