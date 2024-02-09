@@ -13,7 +13,8 @@ export const multicallAddresses = new Set([
 ]);
 
 export const multicall3ChainAddress: { [chainId: number]: string } = {
-  280: multicall3ZkSyncAddress, // zkSync Ero Goerli
+  280: multicall3ZkSyncAddress, // zkSync Era Goerli
+  300: multicall3ZkSyncAddress, // zkSync Era Sepolia
   324: multicall3ZkSyncAddress, // zkSync Era
 };
 
@@ -46,7 +47,8 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   25: 1963112, // Cronos
   122: 16146628, // Fuse
   14: 3002461, // Flare
-  280: 5885690, // zkSync Ero Goerli
+  280: 5885690, // zkSync Era Goerli
+  300: 2292, // zkSync Era Sepolia
   324: 3908235, // zkSync Era
   1101: 57746, // Polygon zkEVM
   1442: 525686, // Polygon zkEVM Testnet
