@@ -31,6 +31,7 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   42170: 1746963, // Arbitrum Nova
   421613: 88114, // Arbitrum Goerli
   421611: 88114, // Arbitrum Rinkeby
+  421614: 81930, // Arbitrum Sepolia
   137: 25770160, // Polygon
   80001: 25444704, // Polygon Mumbai
   100: 21022491, // Gnosis
