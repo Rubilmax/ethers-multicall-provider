@@ -31,6 +31,9 @@ With multicall, batch these queries into a single, on-chain query, without addit
 
 ### Using ethers-v6
 
+> [!WARNING]  
+> Ethers made changes to their `Provider` & `Signer` classes throughout v6, that are breaking types. For versions `v6.7` to `v6.10`, use `ethers-multicall-provider@6.2.0`. For later versions, use `ethers-multicall-provider@6.3.0`.
+
 ```bash
 npm install ethers-multicall-provider
 ```
