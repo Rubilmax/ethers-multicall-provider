@@ -1,6 +1,6 @@
 {
   "name": "ethers-multicall-provider",
-  "version": "6.2.0",
+  "version": "6.3.0",
   "description": "⚡🕰️ Drop-in solution to batch smart contract RPC calls in a single RPC query via Multicall!",
   "main": "lib/index.js",
   "files": [
@@ -42,7 +42,7 @@
   "homepage": "https://github.com/rubilmax/ethers-multicall-provider#readme",
   "dependencies": {
     "dataloader": "^2.2.2",
-    "ethers": "^6.0.0"
+    "ethers": "^6.11.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",

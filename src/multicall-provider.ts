@@ -1,12 +1,5 @@
 import DataLoader from "dataloader";
-import {
-  BlockTag,
-  BytesLike,
-  AbstractProvider,
-  PerformActionRequest,
-  Network,
-  isHexString,
-} from "ethers";
+import { BlockTag, AbstractProvider, PerformActionRequest } from "ethers";
 
 import { multicallAddresses } from "./constants";
 import { Multicall2, Multicall3 } from "./types";
@@ -25,9 +18,7 @@ export interface ContractCallRequest {
 
 export type MulticallProvider<T extends AbstractProvider = AbstractProvider> = T & {
   readonly _isMulticallProvider: boolean;
-
-  fetchNetwork(): Promise<Network>;
-  _networkPromise: Promise<Network>;
+  readonly cache: boolean;
 
   maxMulticallDataLength: number;
   isMulticallEnabled: boolean;
@@ -62,7 +53,7 @@ export class MulticallWrapper {
 
     // Overload provider
 
-    Object.defineProperties(provider, {
+    const multicallProvider = Object.defineProperties(provider, {
       _isMulticallProvider: {
         value: true,
         writable: false,
@@ -71,6 +62,12 @@ export class MulticallWrapper {
       },
       _provider: {
         value: provider,
+        writable: false,
+        enumerable: true,
+        configurable: false,
+      },
+      cache: {
+        value: cache,
         writable: false,
         enumerable: true,
         configurable: false,
@@ -87,9 +84,7 @@ export class MulticallWrapper {
         enumerable: true,
         configurable: true,
       },
-    });
-
-    const multicallProvider = provider as MulticallProvider<T>;
+    }) as MulticallProvider<T>;
 
     // Define execution context
 
@@ -171,24 +166,6 @@ export class MulticallWrapper {
       }
     );
 
-    // Expose `Provider.fetchNetwork` to fetch & update the network cache when needed
-
-    const getNetwork = provider.getNetwork.bind(provider);
-
-    multicallProvider.fetchNetwork = async function fetchNetwork(): Promise<Network> {
-      this._networkPromise = getNetwork();
-
-      return this._networkPromise;
-    };
-
-    multicallProvider.fetchNetwork();
-
-    // Overload `Provider._detectNetwork` to disable polling the network at each RPC call
-
-    multicallProvider._detectNetwork = async function _detectNetwork(): Promise<Network> {
-      return this._networkPromise;
-    };
-
     // Overload `Provider._perform`
 
     const _perform = provider._perform.bind(provider);
@@ -203,7 +180,7 @@ export class MulticallWrapper {
 
       if (!to || !data || multicallAddresses.has(to.toString().toLowerCase())) return _perform(req);
 
-      const network = await this._networkPromise;
+      const network = await this._detectNetwork();
 
       const blockNumber = getBlockNumber(blockTag);
       const multicall = getMulticall(blockNumber, Number(network.chainId), provider);
