@@ -271,7 +271,7 @@ describe("ethers-multicall-provider", () => {
         _range(20_000).map((i) => uni.balanceOf("0x" + i.toString(16).padStart(40, "0")))
       );
 
-      expect(provider.send).toHaveBeenCalledTimes(4);
+      expect(provider.send).toHaveBeenCalledTimes(5);
       expect(provider.send).toHaveBeenCalledWith("eth_chainId", []);
     });
 
