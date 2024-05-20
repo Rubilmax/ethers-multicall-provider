@@ -189,7 +189,7 @@ describe("ethers-multicall-provider", () => {
     it("should throw a descriptive Error when querying unknown contract", async () => {
       await expect(unknownUni.symbol()).rejects.toEqual(
         new Error(
-          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.11.1)`
+          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.12.1)`
         )
       );
     });
@@ -205,7 +205,7 @@ describe("ethers-multicall-provider", () => {
       expect(unknownUni.symbol().catch(() => "UNI")).resolves.toEqual("UNI");
       await expect(unknownUni.symbol()).rejects.toEqual(
         new Error(
-          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.11.1)`
+          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.12.1)`
         )
       );
     });
@@ -217,7 +217,7 @@ describe("ethers-multicall-provider", () => {
       expect(uni.symbol(overrides).catch(() => "UNI")).resolves.toEqual("UNI");
       await expect(unknownUni.symbol(overrides)).rejects.toEqual(
         new Error(
-          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.11.1)`
+          `could not decode result data (value="0x", info={ "method": "symbol", "signature": "symbol()" }, code=BAD_DATA, version=6.12.1)`
         )
       );
     });
