@@ -39,6 +39,7 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   43113: 7096959, // Avalanche Fuji
   250: 33001987, // Fantom Opera
   4002: 8328688, // Fantom Testnet
+  146: 60, // Fantom Sonic
   56: 15921452, // BSC
   97: 17422483, // BSC Tesnet
   1284: 609002, // Moonbeam
