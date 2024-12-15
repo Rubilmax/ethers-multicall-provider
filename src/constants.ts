@@ -33,6 +33,7 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   421611: 88114, // Arbitrum Rinkeby
   421614: 81930, // Arbitrum Sepolia
   137: 25770160, // Polygon
+  146: 60, // Fantom Sonic
   80001: 25444704, // Polygon Mumbai
   100: 21022491, // Gnosis
   43114: 11907934, // Avalanche
