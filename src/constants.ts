@@ -56,6 +56,8 @@ export const multicall3DeploymentBlockNumbers: { [chainId: number]: number } = {
   1442: 525686, // Polygon zkEVM Testnet
   8453: 5022, // Base
   84531: 1376988, // Base Testnet
+  42220: 13112599, // Celo Mainnet
+  42787: 14569001 // Celo Alfajores Testnet
 };
 
 export const multicall2DeploymentBlockNumbers: { [chainId: number]: number } = {
